@@ -321,81 +321,180 @@ def create_excel_output(result, schedule_date):
         traceback.print_exc()
         return None
 
+def convert_excel_to_pdf_via_compdf(excel_path):
+    """Convert Excel to PDF using ComPDF API"""
+    import requests
+    import json
+    
+    # ComPDF API credentials
+    PUBLIC_KEY = "public_key_2cc08fbcf77e4aa48a6395fac0222eb5"
+    SECRET_KEY = "secret_key_08c14df172f9203c79e2e4de69ba806f"
+    
+    try:
+        # Step 1: Create task
+        create_task_url = "https://api.compdf.com/v1/task"
+        create_headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {PUBLIC_KEY}"
+        }
+        
+        create_payload = {
+            "language": "english",
+            "executeTypeUrl": "/v1/execute/office-to-pdf"
+        }
+        
+        print("Creating ComPDF conversion task...")
+        create_response = requests.post(create_task_url, headers=create_headers, json=create_payload, timeout=30)
+        
+        if create_response.status_code != 200:
+            print(f"Failed to create task: {create_response.text}")
+            return None
+            
+        create_result = create_response.json()
+        if create_result.get('code') != 200:
+            print(f"Task creation failed: {create_result}")
+            return None
+            
+        task_id = create_result['data']['taskId']
+        print(f"Task created: {task_id}")
+        
+        # Step 2: Upload file
+        upload_url = "https://api.compdf.com/v1/upload"
+        upload_headers = {
+            "Authorization": f"Bearer {PUBLIC_KEY}"
+        }
+        
+        with open(excel_path, 'rb') as f:
+            files = {
+                'file': (os.path.basename(excel_path), f, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            }
+            upload_data = {
+                'taskId': task_id
+            }
+            
+            print("Uploading Excel file...")
+            upload_response = requests.post(upload_url, headers=upload_headers, files=files, data=upload_data, timeout=60)
+        
+        if upload_response.status_code != 200:
+            print(f"Failed to upload file: {upload_response.text}")
+            return None
+            
+        upload_result = upload_response.json()
+        if upload_result.get('code') != 200:
+            print(f"File upload failed: {upload_result}")
+            return None
+            
+        file_key = upload_result['data']['fileKey']
+        print(f"File uploaded: {file_key}")
+        
+        # Step 3: Execute conversion
+        execute_url = "https://api.compdf.com/v1/execute/office-to-pdf"
+        execute_headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {PUBLIC_KEY}"
+        }
+        
+        execute_payload = {
+            "taskId": task_id,
+            "fileKey": file_key
+        }
+        
+        print("Starting conversion...")
+        execute_response = requests.post(execute_url, headers=execute_headers, json=execute_payload, timeout=30)
+        
+        if execute_response.status_code != 200:
+            print(f"Failed to execute conversion: {execute_response.text}")
+            return None
+            
+        execute_result = execute_response.json()
+        if execute_result.get('code') != 200:
+            print(f"Conversion execution failed: {execute_result}")
+            return None
+            
+        print("Conversion started, waiting for completion...")
+        
+        # Step 4: Check status and download
+        status_url = f"https://api.compdf.com/v1/task/status?taskId={task_id}"
+        status_headers = {
+            "Authorization": f"Bearer {PUBLIC_KEY}"
+        }
+        
+        max_attempts = 30  # Wait up to 5 minutes
+        for attempt in range(max_attempts):
+            import time
+            time.sleep(10)  # Wait 10 seconds between checks
+            
+            print(f"Checking status... (attempt {attempt + 1}/{max_attempts})")
+            status_response = requests.get(status_url, headers=status_headers, timeout=30)
+            
+            if status_response.status_code != 200:
+                print(f"Failed to check status: {status_response.text}")
+                continue
+                
+            status_result = status_response.json()
+            if status_result.get('code') != 200:
+                print(f"Status check failed: {status_result}")
+                continue
+                
+            task_status = status_result['data']['taskStatus']
+            print(f"Task status: {task_status}")
+            
+            if task_status == 'TaskFinish':
+                # Download the converted PDF
+                file_list = status_result['data']['fileList']
+                if not file_list:
+                    print("No output files found")
+                    return None
+                    
+                download_url = file_list[0]['url']
+                print(f"Downloading PDF from: {download_url}")
+                
+                download_response = requests.get(download_url, timeout=60)
+                if download_response.status_code == 200:
+                    return download_response.content
+                else:
+                    print(f"Failed to download PDF: {download_response.text}")
+                    return None
+                    
+            elif task_status in ['TaskFail', 'TaskError']:
+                print(f"Task failed: {status_result}")
+                return None
+                
+        print("Timeout waiting for conversion to complete")
+        return None
+        
+    except Exception as e:
+        print(f"ComPDF API error: {e}")
+        return None
+
 def create_image_from_excel(excel_path):
-    """Tạo ảnh từ file Excel"""
+    """Tạo ảnh từ file Excel sử dụng ComPDF API"""
     try:
         image_path = excel_path.replace('.xlsx', '.png')
         
-        # Create temporary directory
+        # Step 1: Convert Excel to PDF using ComPDF API
+        print("Converting Excel to PDF using ComPDF API...")
+        pdf_data = convert_excel_to_pdf_via_compdf(excel_path)
+        
+        if not pdf_data:
+            print("Failed to convert Excel to PDF via ComPDF API")
+            return None
+            
+        # Step 2: Save PDF temporarily and convert to PNG
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Step 1: Convert Excel to PDF using LibreOffice  
-            pdf_path = os.path.join(temp_dir, 'temp.pdf')
+            temp_pdf_path = os.path.join(temp_dir, 'converted.pdf')
             
-            # Use different LibreOffice paths depending on environment
-            libreoffice_cmd = None
-            
-            # Try different common LibreOffice paths
-            possible_paths = [
-                'libreoffice',  # If in PATH (most common on Linux containers)
-                'soffice',  # Alternative name
-                '/usr/bin/libreoffice',  # Standard Linux path
-                '/usr/bin/soffice',  # Alternative Linux path
-                '/usr/local/bin/libreoffice',  # Local install
-                '/usr/local/bin/soffice',  # Local install
-                '/opt/libreoffice*/program/soffice',  # Common Linux install location
-                '/snap/bin/libreoffice',  # Snap package
-                '/usr/lib/libreoffice/program/soffice',  # Another common location
-                '/Applications/LibreOffice.app/Contents/MacOS/soffice',  # macOS
-            ]
-            
-            for path in possible_paths:
-                try:
-                    print(f"Trying LibreOffice path: {path}")
-                    result_test = subprocess.run([path, '--version'], capture_output=True, timeout=5)
-                    print(f"Result for {path}: returncode={result_test.returncode}, stdout={result_test.stdout[:100]}, stderr={result_test.stderr[:100]}")
-                    if result_test.returncode == 0:
-                        libreoffice_cmd = path
-                        print(f"Found working LibreOffice at: {path}")
-                        break
-                except Exception as e:
-                    print(f"Error testing {path}: {e}")
-                    continue
-            
-            if not libreoffice_cmd:
-                print("LibreOffice not found, cannot create image")
-                # Additional debugging - check what's available in /usr/bin/
-                try:
-                    ls_result = subprocess.run(['ls', '/usr/bin/'], capture_output=True, text=True, timeout=10)
-                    print(f"Available in /usr/bin/: {ls_result.stdout}")
-                except:
-                    pass
-                return None
-            
-            cmd = [
-                libreoffice_cmd,
-                '--headless',
-                '--convert-to', 'pdf', 
-                '--outdir', temp_dir,
-                excel_path
-            ]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            
-            if result.returncode != 0:
-                print(f"LibreOffice conversion failed: {result.stderr}")
-                return None
-            
-            # Find generated PDF
-            pdf_files = [f for f in os.listdir(temp_dir) if f.endswith('.pdf')]
-            if not pdf_files:
-                return None
+            # Write PDF data to temporary file
+            with open(temp_pdf_path, 'wb') as f:
+                f.write(pdf_data)
                 
-            actual_pdf_path = os.path.join(temp_dir, pdf_files[0])
+            print(f"PDF saved to {temp_pdf_path}, converting to image...")
             
-            # Step 2: Convert PDF to PNG
-            images = convert_from_path(actual_pdf_path, dpi=200, fmt='PNG', first_page=1, last_page=1)
+            # Step 3: Convert PDF to PNG using pdf2image
+            images = convert_from_path(temp_pdf_path, dpi=200, fmt='PNG', first_page=1, last_page=1)
             
             if not images:
+                print("Failed to convert PDF to image")
                 return None
                 
             image = images[0]
@@ -415,11 +514,14 @@ def create_image_from_excel(excel_path):
                 image = image.crop((left, top, right, bottom))
             
             image.save(image_path, 'PNG', quality=95, optimize=True)
+            print(f"Image saved to {image_path}")
             
             return image_path
             
     except Exception as e:
         print(f"Error creating image: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 @app.route('/download/<path:filename>')
@@ -605,7 +707,7 @@ if __name__ == '__main__':
     
     print("🏨 Starting Hotel Room Classification Web Server...")
     print(f"📡 Server will be available on port {port}")
-    print("📋 Make sure you have pdftotext installed!")
+    print("📋 PDF processing: pdftotext + ComPDF API for image generation")
     
     # Use different settings for production vs development
     debug_mode = os.environ.get('FLASK_ENV') != 'production'
