@@ -422,7 +422,7 @@ def convert_excel_to_pdf_via_compdf(excel_path):
             return None
             
         create_result = create_response.json()
-        if create_result.get('code') != 200:
+        if create_result.get('code') != '200':
             print(f"Task creation failed: {create_result}")
             return None
             
@@ -452,7 +452,7 @@ def convert_excel_to_pdf_via_compdf(excel_path):
             return None
             
         upload_result = upload_response.json()
-        if upload_result.get('code') != 200:
+        if upload_result.get('code') != '200':
             print(f"File upload failed: {upload_result}")
             return None
             
@@ -473,7 +473,7 @@ def convert_excel_to_pdf_via_compdf(excel_path):
             return None
             
         execute_result = execute_response.json()
-        if execute_result.get('code') != 200:
+        if execute_result.get('code') != '200':
             print(f"Conversion execution failed: {execute_result}")
             return None
             
@@ -499,7 +499,7 @@ def convert_excel_to_pdf_via_compdf(excel_path):
                 continue
                 
             status_result = status_response.json()
-            if status_result.get('code') != 200:
+            if status_result.get('code') != '200':
                 print(f"Status check failed: {status_result}")
                 continue
                 
