@@ -63,7 +63,7 @@ def pdf_to_text(pdf_path):
         return None
 
 def extract_rooms_from_arr_dep(pdf_path):
-    """Trích xuất số phòng từ file ARR/DEP"""
+    """Trích xuất số phòng từ file ARR/DEP - chỉ lấy từ cột đầu tiên"""
     text_path = pdf_to_text(pdf_path)
     if not text_path:
         return []
@@ -77,11 +77,18 @@ def extract_rooms_from_arr_dep(pdf_path):
         
         for line in lines:
             line_clean = line.strip()
-            if line_clean:
-                room_matches = re.findall(r'\b(\d{4})\b', line_clean)
-                for room in room_matches:
-                    if not re.match(r'^(19|20)\d{2}$', room):  # Không phải năm
-                        rooms.append(room)
+            if not line_clean:
+                continue
+                
+            # Chỉ lấy số phòng ở đầu dòng (cột đầu tiên)
+            # Pattern tìm số 4 chữ số ở đầu dòng, có thể có khoảng trắng phía trước
+            room_match = re.match(r'^\s*(\d{4})\b', line_clean)
+            
+            if room_match:
+                room = room_match.group(1)
+                # Kiểm tra không phải năm (19xx hoặc 20xx)
+                if not re.match(r'^(19|20)\d{2}$', room):
+                    rooms.append(room)
         
         # Remove duplicates and sort
         unique_rooms = sorted(list(set(rooms)))
