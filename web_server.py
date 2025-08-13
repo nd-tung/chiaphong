@@ -326,9 +326,14 @@ def convert_excel_to_pdf_via_compdf(excel_path):
     import requests
     import json
     
-    # ComPDF API credentials
-    PUBLIC_KEY = "public_key_2cc08fbcf77e4aa48a6395fac0222eb5"
-    SECRET_KEY = "secret_key_08c14df172f9203c79e2e4de69ba806f"
+    # ComPDF API credentials from environment variables
+    PUBLIC_KEY = os.environ.get('COMPDF_PUBLIC_KEY')
+    SECRET_KEY = os.environ.get('COMPDF_SECRET_KEY')
+    
+    if not PUBLIC_KEY or not SECRET_KEY:
+        print("ERROR: ComPDF API credentials not found in environment variables")
+        print("Please set COMPDF_PUBLIC_KEY and COMPDF_SECRET_KEY")
+        return None
     
     try:
         # Step 1: Create task

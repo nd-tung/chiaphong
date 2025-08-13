@@ -28,6 +28,8 @@ env/
 ENV/
 .env
 .venv
+.env.local
+.env.production
 
 # Flask
 instance/
