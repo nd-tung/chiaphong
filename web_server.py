@@ -367,6 +367,7 @@ def convert_excel_to_pdf_via_compdf(excel_path):
     # Get access token
     access_token = get_compdf_access_token()
     if not access_token:
+        print("Could not get ComPDF access token")
         return None
     
     try:
