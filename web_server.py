@@ -392,10 +392,18 @@ def convert_excel_to_pdf_via_compdf(excel_path):
         # Find Excel to PDF conversion tool
         execute_type_url = None
         for tool in tools_result.get('data', []):
-            if (tool.get('sourceTypeName') in ['xlsx', 'xls', 'excel'] and 
+            if (tool.get('sourceTypeName') == 'xlsx' and 
                 tool.get('targetTypeName') == 'pdf'):
                 execute_type_url = tool.get('executeTypeUrl')
                 break
+        
+        # Fallback to xls format if xlsx not found
+        if not execute_type_url:
+            for tool in tools_result.get('data', []):
+                if (tool.get('sourceTypeName') == 'xls' and 
+                    tool.get('targetTypeName') == 'pdf'):
+                    execute_type_url = tool.get('executeTypeUrl')
+                    break
         
         if not execute_type_url:
             # Fallback to common patterns if exact match not found
@@ -441,7 +449,7 @@ def convert_excel_to_pdf_via_compdf(excel_path):
             }
             upload_data = {
                 'taskId': task_id,
-                'language': 'english'
+                'language': '1'  # 1 for English, 2 for Chinese
             }
             
             print("Uploading Excel file...")
@@ -487,7 +495,7 @@ def convert_excel_to_pdf_via_compdf(excel_path):
             print(f"Checking status... (attempt {attempt + 1}/{max_attempts})")
             
             # Check file info to get status
-            status_url = f"https://api-server.compdf.com/server/v1/file/fileInfo?fileKey={file_key}&language=english"
+            status_url = f"https://api-server.compdf.com/server/v1/file/fileInfo?fileKey={file_key}&language=1"
             status_headers = {
                 "Authorization": f"Bearer {access_token}"
             }
@@ -507,7 +515,7 @@ def convert_excel_to_pdf_via_compdf(excel_path):
             task_status = status_data.get('status')
             print(f"Task status: {task_status}")
             
-            if task_status == 'TaskFinish':
+            if task_status in ['TaskFinish', 'success']:
                 # Download the converted PDF
                 download_url = status_data.get('downloadUrl')
                 if not download_url:
