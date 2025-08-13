@@ -321,31 +321,65 @@ def create_excel_output(result, schedule_date):
         traceback.print_exc()
         return None
 
-def convert_excel_to_pdf_via_compdf(excel_path):
-    """Convert Excel to PDF using ComPDF API"""
+def get_compdf_access_token():
+    """Get access token from ComPDF API"""
     import requests
-    import json
     
-    # ComPDF API credentials from environment variables
     PUBLIC_KEY = os.environ.get('COMPDF_PUBLIC_KEY')
     SECRET_KEY = os.environ.get('COMPDF_SECRET_KEY')
     
     if not PUBLIC_KEY or not SECRET_KEY:
         print("ERROR: ComPDF API credentials not found in environment variables")
-        print("Please set COMPDF_PUBLIC_KEY and COMPDF_SECRET_KEY")
         return None
     
     try:
-        # Step 1: Create task
-        create_task_url = "https://api.compdf.com/v1/task"
+        token_url = "https://api-server.compdf.com/server/v1/oauth/token"
+        
+        data = {
+            "publicKey": PUBLIC_KEY,
+            "secretKey": SECRET_KEY
+        }
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.post(token_url, json=data, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if 'data' in result and 'accessToken' in result['data']:
+                return result['data']['accessToken']
+        
+        print(f"Failed to get access token: {response.text}")
+        return None
+        
+    except Exception as e:
+        print(f"Error getting access token: {e}")
+        return None
+
+def convert_excel_to_pdf_via_compdf(excel_path):
+    """Convert Excel to PDF using ComPDF API with correct OAuth flow"""
+    import requests
+    import json
+    import time
+    
+    # Get access token
+    access_token = get_compdf_access_token()
+    if not access_token:
+        return None
+    
+    try:
+        # Step 1: Create task using correct API endpoint
+        create_task_url = "https://api-server.compdf.com/server/v1/task"
         create_headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {PUBLIC_KEY}"
+            "Authorization": f"Bearer {access_token}"
         }
         
         create_payload = {
-            "language": "english",
-            "executeTypeUrl": "/v1/execute/office-to-pdf"
+            "executeTypeUrl": "https://api-server.compdf.com/server/v1/office/pdf",
+            "language": "english"
         }
         
         print("Creating ComPDF conversion task...")
@@ -364,9 +398,9 @@ def convert_excel_to_pdf_via_compdf(excel_path):
         print(f"Task created: {task_id}")
         
         # Step 2: Upload file
-        upload_url = "https://api.compdf.com/v1/upload"
+        upload_url = "https://api-server.compdf.com/server/v1/file/upload"
         upload_headers = {
-            "Authorization": f"Bearer {PUBLIC_KEY}"
+            "Authorization": f"Bearer {access_token}"
         }
         
         with open(excel_path, 'rb') as f:
@@ -374,7 +408,8 @@ def convert_excel_to_pdf_via_compdf(excel_path):
                 'file': (os.path.basename(excel_path), f, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             }
             upload_data = {
-                'taskId': task_id
+                'taskId': task_id,
+                'language': 'english'
             }
             
             print("Uploading Excel file...")
@@ -393,10 +428,10 @@ def convert_excel_to_pdf_via_compdf(excel_path):
         print(f"File uploaded: {file_key}")
         
         # Step 3: Execute conversion
-        execute_url = "https://api.compdf.com/v1/execute/office-to-pdf"
+        execute_url = "https://api-server.compdf.com/server/v1/execute/start"
         execute_headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {PUBLIC_KEY}"
+            "Authorization": f"Bearer {access_token}"
         }
         
         execute_payload = {
@@ -419,17 +454,18 @@ def convert_excel_to_pdf_via_compdf(excel_path):
         print("Conversion started, waiting for completion...")
         
         # Step 4: Check status and download
-        status_url = f"https://api.compdf.com/v1/task/status?taskId={task_id}"
-        status_headers = {
-            "Authorization": f"Bearer {PUBLIC_KEY}"
-        }
-        
         max_attempts = 30  # Wait up to 5 minutes
         for attempt in range(max_attempts):
-            import time
             time.sleep(10)  # Wait 10 seconds between checks
             
             print(f"Checking status... (attempt {attempt + 1}/{max_attempts})")
+            
+            # Check file info to get status
+            status_url = f"https://api-server.compdf.com/server/v1/file/fileInfo?fileKey={file_key}&language=english"
+            status_headers = {
+                "Authorization": f"Bearer {access_token}"
+            }
+            
             status_response = requests.get(status_url, headers=status_headers, timeout=30)
             
             if status_response.status_code != 200:
@@ -441,17 +477,17 @@ def convert_excel_to_pdf_via_compdf(excel_path):
                 print(f"Status check failed: {status_result}")
                 continue
                 
-            task_status = status_result['data']['taskStatus']
+            status_data = status_result.get('data', {})
+            task_status = status_data.get('status')
             print(f"Task status: {task_status}")
             
             if task_status == 'TaskFinish':
                 # Download the converted PDF
-                file_list = status_result['data']['fileList']
-                if not file_list:
-                    print("No output files found")
+                download_url = status_data.get('downloadUrl')
+                if not download_url:
+                    print("No download URL found")
                     return None
                     
-                download_url = file_list[0]['url']
                 print(f"Downloading PDF from: {download_url}")
                 
                 download_response = requests.get(download_url, timeout=60)
@@ -462,14 +498,20 @@ def convert_excel_to_pdf_via_compdf(excel_path):
                     return None
                     
             elif task_status in ['TaskFail', 'TaskError']:
-                print(f"Task failed: {status_result}")
+                failure_reason = status_data.get('failureReason', 'Unknown error')
+                failure_code = status_data.get('failureCode', 'Unknown code')
+                print(f"Task failed: Code={failure_code}, Reason={failure_reason}")
                 return None
+            elif task_status == 'TaskProcessing':
+                continue  # Keep waiting
                 
         print("Timeout waiting for conversion to complete")
         return None
         
     except Exception as e:
         print(f"ComPDF API error: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def create_image_from_excel(excel_path):
