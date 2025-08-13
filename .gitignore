@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+.venv
+
+# Flask
+instance/
+.webassets-cache
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+~*
+
+# Generated text files from PDFs
+*arr*.txt
+*dep*.txt
+*gih*.txt
+*GIH*.txt
+
+# Generated images
+*.png
+*.jpg
+*.jpeg
+
+# But keep essential files
+!README.md
+
+# Upload directories
+uploads/
+downloads/
+temp/
+
+# Test files (keep only essential ones)
+test_*.py
+debug_*.py
+analyze_*.py
+gih_*.py
+
+# PDF samples (too large for git)
+*.PDF
+*.pdf
+
+# Excel temporary files
+~$*.xlsx
+~$*.xls
+
+# Logs
+*.log
+logs/
