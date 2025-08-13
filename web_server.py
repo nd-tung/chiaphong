@@ -336,23 +336,34 @@ def create_image_from_excel(excel_path):
             
             # Try different common LibreOffice paths
             possible_paths = [
-                '/usr/bin/libreoffice',  # Linux
+                'libreoffice',  # If in PATH (most common on Linux containers)
+                'soffice',  # Alternative name
+                '/usr/bin/libreoffice',  # Standard Linux path
+                '/usr/bin/soffice',  # Alternative Linux path
                 '/Applications/LibreOffice.app/Contents/MacOS/soffice',  # macOS
-                'libreoffice',  # If in PATH
-                'soffice',  # Alternative
             ]
             
             for path in possible_paths:
                 try:
+                    print(f"Trying LibreOffice path: {path}")
                     result_test = subprocess.run([path, '--version'], capture_output=True, timeout=5)
+                    print(f"Result for {path}: returncode={result_test.returncode}, stdout={result_test.stdout[:100]}, stderr={result_test.stderr[:100]}")
                     if result_test.returncode == 0:
                         libreoffice_cmd = path
+                        print(f"Found working LibreOffice at: {path}")
                         break
-                except:
+                except Exception as e:
+                    print(f"Error testing {path}: {e}")
                     continue
             
             if not libreoffice_cmd:
                 print("LibreOffice not found, cannot create image")
+                # Additional debugging - check what's available in /usr/bin/
+                try:
+                    ls_result = subprocess.run(['ls', '/usr/bin/'], capture_output=True, text=True, timeout=10)
+                    print(f"Available in /usr/bin/: {ls_result.stdout}")
+                except:
+                    pass
                 return None
             
             cmd = [
