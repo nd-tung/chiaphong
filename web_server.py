@@ -29,19 +29,37 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
 def pdf_to_text(pdf_path):
-    """Convert PDF thành text sử dụng pdftotext"""
+    """Convert PDF thành text sử dụng pdfplumber (không cần pdftotext)"""
     text_path = pdf_path.replace('.pdf', '.txt').replace('.PDF', '.txt')
     
     try:
+        # Try system pdftotext first
         cmd = ['pdftotext', '-layout', pdf_path, text_path]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         
         if result.returncode == 0 and os.path.exists(text_path):
             return text_path
-        else:
-            return None
-            
+    except:
+        pass
+    
+    # Fallback to pdfplumber
+    try:
+        import pdfplumber
+        
+        with pdfplumber.open(pdf_path) as pdf:
+            text_content = ""
+            for page in pdf.pages:
+                if page.extract_text():
+                    text_content += page.extract_text() + "\n"
+        
+        # Write to text file
+        with open(text_path, 'w', encoding='utf-8') as f:
+            f.write(text_content)
+        
+        return text_path
+        
     except Exception as e:
+        print(f"Error extracting PDF text: {e}")
         return None
 
 def extract_rooms_from_arr_dep(pdf_path):
