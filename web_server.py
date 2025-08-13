@@ -293,6 +293,23 @@ def create_excel_output(result, schedule_date):
         
         print(f"Marked rooms: {marked_rooms}")
         
+        # Add summary totals to EA:, DO:, OD: cells (row 38)
+        # EA: = ARR total (column G, next to F38)
+        # DO: = DEP total (column I, next to H38) 
+        # OD: = OD total (column K, next to J38)
+        try:
+            # Check if manual totals are provided in result
+            ea_total = result.get('manual_ea', len(arr_room_ints))
+            do_total = result.get('manual_do', len(dep_room_ints))
+            od_total = result.get('manual_od', len(od_room_ints))
+            
+            sheet.cell(row=38, column=7, value=ea_total)  # G38: EA total
+            sheet.cell(row=38, column=9, value=do_total)  # I38: DO total
+            sheet.cell(row=38, column=11, value=od_total)  # K38: OD total
+            print(f"Added totals: EA={ea_total}, DO={do_total}, OD={od_total}")
+        except Exception as e:
+            print(f"Error adding totals: {e}")
+        
         # Save the updated Excel
         wb.save(output_path)
         
@@ -434,6 +451,11 @@ def manual_edit():
             dep_rooms = [room.strip() for room in dep_rooms_str.split(',') if room.strip()] if dep_rooms_str else []
             od_rooms = [room.strip() for room in od_rooms_str.split(',') if room.strip()] if od_rooms_str else []
             
+            # Get manual totals (if provided)
+            manual_ea = request.form.get('manual_ea', '').strip()
+            manual_do = request.form.get('manual_do', '').strip()
+            manual_od = request.form.get('manual_od', '').strip()
+            
             result = {
                 'schedule_date': schedule_date,
                 'ARR': arr_rooms,
@@ -441,6 +463,19 @@ def manual_edit():
                 'OD': od_rooms,
                 'processing_info': [f'Manual edit: ARR={len(arr_rooms)}, DEP={len(dep_rooms)}, OD={len(od_rooms)}']
             }
+            
+            # Add manual totals if provided
+            if manual_ea and manual_ea.isdigit():
+                result['manual_ea'] = int(manual_ea)
+                result['processing_info'].append(f'Manual EA total: {manual_ea}')
+            
+            if manual_do and manual_do.isdigit():
+                result['manual_do'] = int(manual_do)
+                result['processing_info'].append(f'Manual DO total: {manual_do}')
+            
+            if manual_od and manual_od.isdigit():
+                result['manual_od'] = int(manual_od)
+                result['processing_info'].append(f'Manual OD total: {manual_od}')
             
             # Create Excel file with manually edited results
             excel_path = create_excel_output(result, schedule_date)

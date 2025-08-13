@@ -610,6 +610,41 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Manual Totals Section -->
+                <div class="category-card" style="border-left-color: #6f42c1; margin-top: 30px;">
+                    <div class="category-header">
+                        <div>
+                            <div class="category-title" style="color: #6f42c1;">📊 Tổng số thủ công</div>
+                            <div class="category-description">Chỉnh sửa thủ công số tổng EA, DO, OD (tùy chọn)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="totals-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                        <div style="text-align: center;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #28a745;">EA (ARR):</label>
+                            <input type="number" name="manual_ea" id="manual_ea" 
+                                   style="width: 80px; padding: 8px; border: 2px solid #ddd; border-radius: 5px; text-align: center; font-size: 1.1em; font-weight: bold;"
+                                   placeholder="Auto" min="0">
+                        </div>
+                        <div style="text-align: center;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #dc3545;">DO (DEP):</label>
+                            <input type="number" name="manual_do" id="manual_do" 
+                                   style="width: 80px; padding: 8px; border: 2px solid #ddd; border-radius: 5px; text-align: center; font-size: 1.1em; font-weight: bold;"
+                                   placeholder="Auto" min="0">
+                        </div>
+                        <div style="text-align: center;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px; color: #e67e22;">OD:</label>
+                            <input type="number" name="manual_od" id="manual_od" 
+                                   style="width: 80px; padding: 8px; border: 2px solid #ddd; border-radius: 5px; text-align: center; font-size: 1.1em; font-weight: bold;"
+                                   placeholder="Auto" min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="help-text" style="margin-top: 10px; text-align: center;">
+                        💡 Để trống để tự động tính từ danh sách phòng. Nhập số để ghi đè thủ công.
+                    </div>
+                </div>
             </form>
         </div>
         
