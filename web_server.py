@@ -340,6 +340,11 @@ def create_image_from_excel(excel_path):
                 'soffice',  # Alternative name
                 '/usr/bin/libreoffice',  # Standard Linux path
                 '/usr/bin/soffice',  # Alternative Linux path
+                '/usr/local/bin/libreoffice',  # Local install
+                '/usr/local/bin/soffice',  # Local install
+                '/opt/libreoffice*/program/soffice',  # Common Linux install location
+                '/snap/bin/libreoffice',  # Snap package
+                '/usr/lib/libreoffice/program/soffice',  # Another common location
                 '/Applications/LibreOffice.app/Contents/MacOS/soffice',  # macOS
             ]
             
@@ -577,10 +582,17 @@ def upload_files():
         if excel_path:
             result['excel_path'] = excel_path
             
-            # Create image from Excel
-            image_path = create_image_from_excel(excel_path)
-            if image_path:
-                result['image_path'] = image_path
+            # Create image from Excel (optional - graceful fallback if LibreOffice unavailable)
+            try:
+                image_path = create_image_from_excel(excel_path)
+                if image_path:
+                    result['image_path'] = image_path
+                    result['processing_info'].append("✅ Excel và ảnh đã được tạo thành công")
+                else:
+                    result['processing_info'].append("⚠️ Excel đã tạo thành công, nhưng không thể tạo ảnh (LibreOffice không khả dụng)")
+            except Exception as e:
+                result['processing_info'].append(f"⚠️ Excel đã tạo thành công, lỗi tạo ảnh: {str(e)}")
+                print(f"Image creation error: {e}")
         
         return jsonify(result)
         

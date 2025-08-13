@@ -4,8 +4,15 @@ FROM python:3.9-slim
 RUN apt-get update && apt-get install -y \
     poppler-utils \
     libreoffice \
+    libreoffice-writer \
+    libreoffice-calc \
     ghostscript \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Verify LibreOffice installation and create symlinks if needed
+RUN which libreoffice || which soffice || ls -la /usr/bin/libre* || ls -la /usr/lib/libreoffice/program/soffice
+RUN if [ -f /usr/lib/libreoffice/program/soffice ]; then ln -sf /usr/lib/libreoffice/program/soffice /usr/local/bin/soffice; fi
 
 # Set working directory
 WORKDIR /app
