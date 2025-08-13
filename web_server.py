@@ -617,6 +617,18 @@ def download_file(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/preview/<path:filename>')
+def preview_file(filename):
+    """Preview generated image files inline"""
+    try:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(file_path) and filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+            return send_file(file_path, as_attachment=False)
+        else:
+            return jsonify({'error': 'Image file not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/')
 def index():
     return render_template('upload.html')

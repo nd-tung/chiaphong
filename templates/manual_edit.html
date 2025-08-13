@@ -320,6 +320,45 @@
             border: 1px solid #f5c6cb;
         }
         
+        /* Image Modal */
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            cursor: pointer;
+        }
+        
+        .image-modal img {
+            display: block;
+            margin: auto;
+            max-width: 95%;
+            max-height: 95%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 8px;
+        }
+        
+        .image-modal .close {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .image-modal .close:hover {
+            color: #ccc;
+        }
+        
         /* Touch-friendly improvements */
         .btn, .submit-btn {
             min-height: 48px; /* Minimum touch target size */
@@ -669,6 +708,12 @@
         </div>
     </div>
     
+    <!-- Image Modal -->
+    <div id="imageModal" class="image-modal" onclick="closeImageModal()">
+        <span class="close" onclick="closeImageModal()">&times;</span>
+        <img id="modalImage" src="" alt="Excel Preview">
+    </div>
+    
     <script>
         // Update room counts when typing
         function updateCounts() {
@@ -757,8 +802,23 @@
                 <div class="result-stat total">TOTAL<br>${data.ARR.length + data.DEP.length + data.OD.length}</div>
             `;
             
-            // Show download links
+            // Show download links and image preview
             let downloadLinks = '';
+            
+            // Add image preview if available
+            if (data.image_path) {
+                const imageFilename = data.image_path.split('/').pop();
+                downloadLinks += `
+                    <div class="image-preview-section" style="margin: 20px 0; text-align: center;">
+                        <h4 style="margin-bottom: 15px; color: #333; font-size: 1.1em;">📋 Bản xem trước Excel:</h4>
+                        <div class="image-container" style="border: 2px solid #ddd; border-radius: 10px; padding: 10px; background: white; display: inline-block; max-width: 100%; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
+                            <img src="/preview/${imageFilename}" alt="Excel Preview" style="max-width: 100%; max-height: 600px; border-radius: 8px; display: block; cursor: pointer; transition: transform 0.2s ease;" onclick="openImageModal(this)" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        </div>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 10px; font-style: italic;">💡 Click vào ảnh để xem chi tiết</p>
+                    </div>
+                `;
+            }
+            
             if (data.excel_path) {
                 const excelFilename = data.excel_path.split('/').pop();
                 downloadLinks += `<a href="/download/${excelFilename}" class="download-btn">📊 Download Excel File</a>`;
@@ -803,6 +863,26 @@
                 window.history.back();
             }
         }
+        
+        // Image Modal Functions
+        function openImageModal(imgElement) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            
+            modal.style.display = 'block';
+            modalImg.src = imgElement.src;
+        }
+        
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+        }
+        
+        // Close modal when pressing ESC key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+            }
+        });
     </script>
 </body>
 </html>
