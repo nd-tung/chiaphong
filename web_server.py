@@ -359,7 +359,7 @@ def get_compdf_access_token():
         return None
 
 def convert_excel_to_pdf_via_compdf(excel_path):
-    """Convert Excel to PDF using ComPDF API with correct OAuth flow"""
+    """Convert Excel to PDF using ComPDF API with correct workflow from documentation"""
     import requests
     import json
     import time
@@ -371,20 +371,51 @@ def convert_excel_to_pdf_via_compdf(excel_path):
         return None
     
     try:
-        # Step 1: Create task using correct API endpoint
-        create_task_url = "https://api-server.compdf.com/server/v1/task"
-        create_headers = {
-            "Content-Type": "application/json",
+        headers = {
             "Authorization": f"Bearer {access_token}"
         }
         
-        create_payload = {
-            "executeTypeUrl": "https://api-server.compdf.com/server/v1/office/pdf",
-            "language": "english"
-        }
+        # Step 1: Get tool support list to find the correct executeTypeUrl
+        print("Getting ComPDF tool support list...")
+        tools_url = "https://api-server.compdf.com/server/v1/tool/support"
+        tools_response = requests.get(tools_url, headers=headers, timeout=30)
         
+        if tools_response.status_code != 200:
+            print(f"Failed to get tool support: {tools_response.text}")
+            return None
+            
+        tools_result = tools_response.json()
+        if tools_result.get('code') != '200':
+            print(f"Tool support request failed: {tools_result}")
+            return None
+            
+        # Find Excel to PDF conversion tool
+        execute_type_url = None
+        for tool in tools_result.get('data', []):
+            if (tool.get('sourceTypeName') in ['xlsx', 'xls', 'excel'] and 
+                tool.get('targetTypeName') == 'pdf'):
+                execute_type_url = tool.get('executeTypeUrl')
+                break
+        
+        if not execute_type_url:
+            # Fallback to common patterns if exact match not found
+            for tool in tools_result.get('data', []):
+                if 'excel' in tool.get('executeTypeUrl', '').lower() or 'office' in tool.get('executeTypeUrl', '').lower():
+                    if 'pdf' in tool.get('executeTypeUrl', '').lower():
+                        execute_type_url = tool.get('executeTypeUrl')
+                        break
+        
+        if not execute_type_url:
+            print("Could not find Excel to PDF conversion tool in supported tools")
+            print(f"Available tools: {[tool.get('executeTypeUrl') for tool in tools_result.get('data', [])[:10]]}")
+            return None
+            
+        print(f"Using executeTypeUrl: {execute_type_url}")
+        
+        # Step 2: Create task using GET with executeTypeUrl as path parameter
         print("Creating ComPDF conversion task...")
-        create_response = requests.post(create_task_url, headers=create_headers, json=create_payload, timeout=30)
+        create_task_url = f"https://api-server.compdf.com/server/v1/task/{execute_type_url}?language=1"
+        create_response = requests.get(create_task_url, headers=headers, timeout=30)
         
         if create_response.status_code != 200:
             print(f"Failed to create task: {create_response.text}")
@@ -428,20 +459,14 @@ def convert_excel_to_pdf_via_compdf(excel_path):
         file_key = upload_result['data']['fileKey']
         print(f"File uploaded: {file_key}")
         
-        # Step 3: Execute conversion
-        execute_url = "https://api-server.compdf.com/server/v1/execute/start"
+        # Step 3: Execute conversion using GET with query parameters
+        print("Starting conversion...")
+        execute_url = f"https://api-server.compdf.com/server/v1/execute/start?taskId={task_id}&language=1"
         execute_headers = {
-            "Content-Type": "application/json",
             "Authorization": f"Bearer {access_token}"
         }
         
-        execute_payload = {
-            "taskId": task_id,
-            "fileKey": file_key
-        }
-        
-        print("Starting conversion...")
-        execute_response = requests.post(execute_url, headers=execute_headers, json=execute_payload, timeout=30)
+        execute_response = requests.get(execute_url, headers=execute_headers, timeout=30)
         
         if execute_response.status_code != 200:
             print(f"Failed to execute conversion: {execute_response.text}")
