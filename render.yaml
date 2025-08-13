@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: chiaphong-web
+    env: python
+    repo: https://github.com/nd-tung/chiaphong.git
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: python web_server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.19
+      - key: PORT
+        fromService:
+          type: web
+          name: chiaphong-web
+          property: port
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+    healthCheckPath: /

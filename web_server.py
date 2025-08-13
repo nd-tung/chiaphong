@@ -17,7 +17,11 @@ from PIL import Image
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['UPLOAD_FOLDER'] = tempfile.mkdtemp()
+
+# Production-friendly upload folder
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'temp_uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 ALLOWED_EXTENSIONS = {'pdf', 'PDF'}
 
@@ -285,8 +289,32 @@ def create_image_from_excel(excel_path):
             # Step 1: Convert Excel to PDF using LibreOffice  
             pdf_path = os.path.join(temp_dir, 'temp.pdf')
             
+            # Use different LibreOffice paths depending on environment
+            libreoffice_cmd = None
+            
+            # Try different common LibreOffice paths
+            possible_paths = [
+                '/usr/bin/libreoffice',  # Linux
+                '/Applications/LibreOffice.app/Contents/MacOS/soffice',  # macOS
+                'libreoffice',  # If in PATH
+                'soffice',  # Alternative
+            ]
+            
+            for path in possible_paths:
+                try:
+                    result_test = subprocess.run([path, '--version'], capture_output=True, timeout=5)
+                    if result_test.returncode == 0:
+                        libreoffice_cmd = path
+                        break
+                except:
+                    continue
+            
+            if not libreoffice_cmd:
+                print("LibreOffice not found, cannot create image")
+                return None
+            
             cmd = [
-                '/Applications/LibreOffice.app/Contents/MacOS/soffice',
+                libreoffice_cmd,
                 '--headless',
                 '--convert-to', 'pdf', 
                 '--outdir', temp_dir,
@@ -489,7 +517,13 @@ def upload_files():
         return jsonify({'error': f'Lỗi xử lý: {str(e)}'}), 500
 
 if __name__ == '__main__':
+    # Get port from environment variable (for Render deployment)
+    port = int(os.environ.get('PORT', 8000))
+    
     print("🏨 Starting Hotel Room Classification Web Server...")
-    print("📡 Server will be available at: http://localhost:8000")
+    print(f"📡 Server will be available on port {port}")
     print("📋 Make sure you have pdftotext installed!")
-    app.run(debug=True, host='0.0.0.0', port=8000)
+    
+    # Use different settings for production vs development
+    debug_mode = os.environ.get('FLASK_ENV') != 'production'
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
