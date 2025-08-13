@@ -8,6 +8,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4facfe">
     <title>🏨 Hotel Room Classification - Upload PDFs</title>
+    <!-- PhotoSwipe CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.2/dist/photoswipe.css">
+    <!-- PhotoSwipe Dynamic Import Polyfill -->
+    <script type="module">
+        import PhotoSwipe from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.2/dist/photoswipe.esm.js';
+        window.PhotoSwipe = PhotoSwipe;
+    </script>
     <style>
         * {
             margin: 0;
@@ -323,104 +330,13 @@
             border: 1px solid #f5c6cb;
         }
         
-        /* Image Modal */
-        .image-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.9);
-            cursor: pointer;
-        }
-        
-        .image-modal img {
-            display: block;
-            margin: auto;
-            max-width: 95%;
-            max-height: 95%;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border-radius: 8px;
-            transition: transform 0.3s ease;
-            cursor: zoom-in;
-        }
-        
-        .image-modal img.zoomed {
-            cursor: zoom-out;
-            max-width: none;
-            max-height: none;
-            width: auto;
-            height: auto;
-        }
-        
-        .image-modal .close {
-            position: absolute;
-            top: 20px;
-            right: 35px;
-            color: #fff;
-            font-size: 40px;
-            font-weight: bold;
-            cursor: pointer;
-            z-index: 1001;
-        }
-        
-        .image-modal .close:hover {
-            color: #ccc;
-        }
-        
-        .zoom-controls {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            display: flex;
-            gap: 10px;
-            z-index: 1001;
-        }
-        
-        .zoom-btn {
-            background: rgba(255, 255, 255, 0.9);
-            border: none;
-            border-radius: 50%;
-            width: 55px;
-            height: 55px;
-            font-size: 24px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            touch-action: manipulation;
-            user-select: none;
-        }
-        
-        .zoom-btn:hover,
-        .zoom-btn:active {
-            background: rgba(255, 255, 255, 1);
-            transform: scale(1.1);
-        }
-        
-        .zoom-btn:focus {
-            outline: 2px solid #4facfe;
-            outline-offset: 2px;
-        }
-        
-        .zoom-info {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
+        /* PhotoSwipe custom styles */
+        .pswp__custom-caption {
+            background: rgba(0, 0, 0, 0.5);
+            font-size: 16px;
             color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
-            z-index: 1001;
+            text-align: center;
+            padding: 10px;
         }
         
         .image-preview-section img {
@@ -662,17 +578,6 @@
         </div>
     </div>
     
-    <!-- Image Modal -->
-    <div id="imageModal" class="image-modal" onclick="closeImageModal()">
-        <span class="close" onclick="closeImageModal()">&times;</span>
-        <div class="zoom-controls">
-            <button class="zoom-btn" onclick="zoomIn(event)" title="Phóng to">+</button>
-            <button class="zoom-btn" onclick="zoomOut(event)" title="Thu nhỏ">−</button>
-            <button class="zoom-btn" onclick="resetZoom(event)" title="Kích thước gốc">⌂</button>
-        </div>
-        <img id="modalImage" src="" alt="Excel Preview" onclick="toggleZoom(event)">
-        <div class="zoom-info" id="zoomInfo">100%</div>
-    </div>
     
     <script>
         function showFileName(inputId) {
@@ -821,383 +726,49 @@
             document.getElementById('gih_selected').textContent = '';
         }
         
-        // Image Modal Functions with Zoom
-        let currentZoom = 1;
-        let isDragging = false;
-        let startX, startY, scrollLeft, scrollTop;
-        
+        // PhotoSwipe Image Modal Functions
         function openImageModal(imgElement) {
-            const modal = document.getElementById('imageModal');
-            const modalImg = document.getElementById('modalImage');
-            
-            modal.style.display = 'block';
-            modalImg.src = imgElement.src;
-            currentZoom = 1;
-            updateZoomDisplay();
-            resetImagePosition();
-        }
-        
-        function closeImageModal() {
-            const modal = document.getElementById('imageModal');
-            modal.style.display = 'none';
-            currentZoom = 1;
-            resetImagePosition();
-        }
-        
-        function zoomIn(event) {
-            event.stopPropagation();
-            currentZoom = Math.min(currentZoom * 1.2, 5); // Max 500% zoom
-            applyZoom();
-        }
-        
-        function zoomOut(event) {
-            event.stopPropagation();
-            currentZoom = Math.max(currentZoom / 1.2, 0.5); // Min 50% zoom
-            applyZoom();
-        }
-        
-        function resetZoom(event) {
-            event.stopPropagation();
-            currentZoom = 1;
-            applyZoom();
-            resetImagePosition();
-        }
-        
-        function toggleZoom(event) {
-            event.stopPropagation();
-            if (currentZoom === 1) {
-                currentZoom = 2;
-            } else {
-                currentZoom = 1;
-                resetImagePosition();
+            if (!window.PhotoSwipe) {
+                console.error('PhotoSwipe not loaded');
+                return;
             }
-            applyZoom();
-        }
-        
-        function applyZoom() {
-            const modalImg = document.getElementById('modalImage');
-            const modal = document.getElementById('imageModal');
             
-            if (currentZoom > 1) {
-                modalImg.style.maxWidth = 'none';
-                modalImg.style.maxHeight = 'none';
-                modalImg.style.cursor = 'grab';
-                modalImg.classList.add('zoomed');
-                modal.style.overflow = 'hidden';
-                modal.style.cursor = 'grab';
+            // Get image dimensions (we'll use default if not available)
+            const img = new Image();
+            img.onload = function() {
+                const items = [{
+                    src: imgElement.src,
+                    width: this.naturalWidth,
+                    height: this.naturalHeight,
+                    alt: 'Excel Preview - Click và kéo để xem chi tiết'
+                }];
                 
-                // Enable dragging for zoomed images
-                modalImg.onmousedown = startDrag;
-                modal.onmousemove = drag;
-                modal.onmouseup = endDrag;
-                modal.onmouseleave = endDrag;
-            } else {
-                modalImg.style.maxWidth = '95%';
-                modalImg.style.maxHeight = '95%';
-                modalImg.style.cursor = 'zoom-in';
-                modalImg.classList.remove('zoomed');
-                modal.style.overflow = 'auto';
-                modal.style.cursor = 'pointer';
+                const options = {
+                    index: 0,
+                    bgOpacity: 0.9,
+                    showHideOpacity: true,
+                    spacing: 0.1,
+                    allowPanToNext: false,
+                    loop: false,
+                    pinchToClose: true,
+                    closeOnVerticalDrag: true,
+                    padding: { top: 20, bottom: 40, left: 100, right: 100 },
+                    wheelToZoom: true,
+                    zoomAnimationDuration: 250,
+                    initialZoomLevel: 'fit',
+                    secondaryZoomLevel: 1.5,
+                    maxZoomLevel: 3,
+                    doubleTapAction: 'zoom',
+                    clickToCloseNonZoomable: true
+                };
                 
-                // Disable dragging
-                modalImg.onmousedown = null;
-                modal.onmousemove = null;
-                modal.onmouseup = null;
-                modal.onmouseleave = null;
-            }
-            
-            modalImg.style.transform = `translate(-50%, -50%) scale(${currentZoom})`;
-            updateZoomDisplay();
-        }
-        
-        function updateZoomDisplay() {
-            const zoomInfo = document.getElementById('zoomInfo');
-            zoomInfo.textContent = Math.round(currentZoom * 100) + '%';
-        }
-        
-        function resetImagePosition() {
-            const modalImg = document.getElementById('modalImage');
-            modalImg.style.left = '50%';
-            modalImg.style.top = '50%';
-        }
-        
-        function startDrag(e) {
-            if (currentZoom <= 1) return;
-            
-            isDragging = true;
-            const modalImg = document.getElementById('modalImage');
-            modalImg.style.cursor = 'grabbing';
-            
-            startX = e.clientX - modalImg.offsetLeft;
-            startY = e.clientY - modalImg.offsetTop;
-            
-            e.preventDefault();
-        }
-        
-        function drag(e) {
-            if (!isDragging || currentZoom <= 1) return;
-            
-            e.preventDefault();
-            
-            const modalImg = document.getElementById('modalImage');
-            const modal = document.getElementById('imageModal');
-            
-            const x = e.clientX - startX;
-            const y = e.clientY - startY;
-            
-            // Constrain dragging to modal bounds
-            const maxX = modal.clientWidth - modalImg.offsetWidth;
-            const maxY = modal.clientHeight - modalImg.offsetHeight;
-            
-            const constrainedX = Math.min(Math.max(x, maxX), 0);
-            const constrainedY = Math.min(Math.max(y, maxY), 0);
-            
-            modalImg.style.left = constrainedX + 'px';
-            modalImg.style.top = constrainedY + 'px';
-            modalImg.style.transform = `scale(${currentZoom})`;
-        }
-        
-        function endDrag() {
-            if (isDragging) {
-                isDragging = false;
-                const modalImg = document.getElementById('modalImage');
-                modalImg.style.cursor = 'grab';
-            }
-        }
-        
-        function closeImageModal() {
-            const modal = document.getElementById('imageModal');
-            modal.style.display = 'none';
-            currentZoom = 1;
-            resetImagePosition();
-        }
-        
-        // Keyboard controls
-        document.addEventListener('keydown', function(event) {
-            const modal = document.getElementById('imageModal');
-            if (modal.style.display === 'block') {
-                switch(event.key) {
-                    case 'Escape':
-                        closeImageModal();
-                        break;
-                    case '+':
-                    case '=':
-                        event.preventDefault();
-                        zoomIn(event);
-                        break;
-                    case '-':
-                        event.preventDefault();
-                        zoomOut(event);
-                        break;
-                    case '0':
-                        event.preventDefault();
-                        resetZoom(event);
-                        break;
-                }
-            }
-        });
-        
-        // Mouse wheel zoom
-        document.addEventListener('wheel', function(event) {
-            const modal = document.getElementById('imageModal');
-            if (modal.style.display === 'block') {
-                event.preventDefault();
+                const gallery = new PhotoSwipe(options);
+                gallery.init();
                 
-                if (event.deltaY < 0) {
-                    zoomIn(event);
-                } else {
-                    zoomOut(event);
-                }
-            }
-        });
-        
-        // Touch support for mobile devices
-        let touchStartDistance = 0;
-        let touchStartZoom = 1;
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let lastTouchX = 0;
-        let lastTouchY = 0;
-        let isTouching = false;
-        let touchMoveThreshold = 10; // pixels
-        
-        // Calculate distance between two touch points
-        function getTouchDistance(touches) {
-            const dx = touches[0].clientX - touches[1].clientX;
-            const dy = touches[0].clientY - touches[1].clientY;
-            return Math.sqrt(dx * dx + dy * dy);
-        }
-        
-        // Get center point of two touches
-        function getTouchCenter(touches) {
-            return {
-                x: (touches[0].clientX + touches[1].clientX) / 2,
-                y: (touches[0].clientY + touches[1].clientY) / 2
+                // Load the items
+                gallery.loadAndOpen(0, items);
             };
-        }
-        
-        // Touch event handlers
-        document.addEventListener('touchstart', function(event) {
-            const modal = document.getElementById('imageModal');
-            const modalImg = document.getElementById('modalImage');
-            
-            if (modal.style.display !== 'block') return;
-            
-            // Prevent default touch behavior
-            event.preventDefault();
-            
-            const touches = event.touches;
-            isTouching = true;
-            
-            if (touches.length === 1) {
-                // Single touch - prepare for panning if zoomed
-                touchStartX = touches[0].clientX;
-                touchStartY = touches[0].clientY;
-                lastTouchX = touchStartX;
-                lastTouchY = touchStartY;
-            } else if (touches.length === 2) {
-                // Two fingers - prepare for pinch zoom
-                touchStartDistance = getTouchDistance(touches);
-                touchStartZoom = currentZoom;
-                
-                const center = getTouchCenter(touches);
-                touchStartX = center.x;
-                touchStartY = center.y;
-            }
-        }, { passive: false });
-        
-        document.addEventListener('touchmove', function(event) {
-            const modal = document.getElementById('imageModal');
-            const modalImg = document.getElementById('modalImage');
-            
-            if (modal.style.display !== 'block' || !isTouching) return;
-            
-            // Prevent default touch behavior
-            event.preventDefault();
-            
-            const touches = event.touches;
-            
-            if (touches.length === 1 && currentZoom > 1) {
-                // Single touch panning when zoomed
-                const touchX = touches[0].clientX;
-                const touchY = touches[0].clientY;
-                
-                const deltaX = touchX - lastTouchX;
-                const deltaY = touchY - lastTouchY;
-                
-                // Only pan if we've moved enough (prevents accidental panning)
-                if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
-                    const rect = modalImg.getBoundingClientRect();
-                    const newLeft = rect.left + deltaX;
-                    const newTop = rect.top + deltaY;
-                    
-                    // Apply constraints to keep image within reasonable bounds
-                    const modal = document.getElementById('imageModal');
-                    const maxLeft = modal.clientWidth;
-                    const maxTop = modal.clientHeight;
-                    const minLeft = -rect.width;
-                    const minTop = -rect.height;
-                    
-                    const constrainedLeft = Math.min(Math.max(newLeft, minLeft), maxLeft);
-                    const constrainedTop = Math.min(Math.max(newTop, minTop), maxTop);
-                    
-                    modalImg.style.left = constrainedLeft + 'px';
-                    modalImg.style.top = constrainedTop + 'px';
-                    modalImg.style.transform = `scale(${currentZoom})`;
-                }
-                
-                lastTouchX = touchX;
-                lastTouchY = touchY;
-            } else if (touches.length === 2) {
-                // Two finger pinch zoom
-                const currentDistance = getTouchDistance(touches);
-                const scale = currentDistance / touchStartDistance;
-                
-                // Calculate new zoom level
-                const newZoom = Math.min(Math.max(touchStartZoom * scale, 0.5), 5);
-                
-                // Apply zoom if changed significantly
-                if (Math.abs(newZoom - currentZoom) > 0.05) {
-                    currentZoom = newZoom;
-                    applyZoom();
-                }
-            }
-        }, { passive: false });
-        
-        document.addEventListener('touchend', function(event) {
-            const modal = document.getElementById('imageModal');
-            
-            if (modal.style.display !== 'block') return;
-            
-            const touches = event.touches;
-            
-            if (touches.length === 0) {
-                // All touches ended
-                isTouching = false;
-                
-                // If we just tapped (no significant movement) and not zoomed, toggle zoom
-                if (event.changedTouches.length === 1 && currentZoom === 1) {
-                    const touch = event.changedTouches[0];
-                    const deltaX = Math.abs(touch.clientX - touchStartX);
-                    const deltaY = Math.abs(touch.clientY - touchStartY);
-                    
-                    if (deltaX < touchMoveThreshold && deltaY < touchMoveThreshold) {
-                        // Quick tap - toggle zoom
-                        toggleZoom(event);
-                    }
-                }
-            } else if (touches.length === 1) {
-                // One finger left, reset for potential panning
-                touchStartX = touches[0].clientX;
-                touchStartY = touches[0].clientY;
-                lastTouchX = touchStartX;
-                lastTouchY = touchStartY;
-            }
-        }, { passive: false });
-        
-        // Prevent context menu on long press
-        document.addEventListener('contextmenu', function(event) {
-            const modal = document.getElementById('imageModal');
-            if (modal.style.display === 'block') {
-                event.preventDefault();
-            }
-        });
-        
-        // Enhanced zoom function for mobile
-        function applyZoom() {
-            const modalImg = document.getElementById('modalImage');
-            const modal = document.getElementById('imageModal');
-            
-            if (currentZoom > 1) {
-                modalImg.style.maxWidth = 'none';
-                modalImg.style.maxHeight = 'none';
-                modalImg.style.cursor = 'grab';
-                modalImg.classList.add('zoomed');
-                modal.style.overflow = 'hidden';
-                modal.style.cursor = 'grab';
-                
-                // Enable dragging for zoomed images (desktop)
-                modalImg.onmousedown = startDrag;
-                modal.onmousemove = drag;
-                modal.onmouseup = endDrag;
-                modal.onmouseleave = endDrag;
-            } else {
-                modalImg.style.maxWidth = '95%';
-                modalImg.style.maxHeight = '95%';
-                modalImg.style.cursor = 'zoom-in';
-                modalImg.classList.remove('zoomed');
-                modal.style.overflow = 'auto';
-                modal.style.cursor = 'pointer';
-                
-                // Disable dragging
-                modalImg.onmousedown = null;
-                modal.onmousemove = null;
-                modal.onmouseup = null;
-                modal.onmouseleave = null;
-            }
-            
-            modalImg.style.transform = `translate(-50%, -50%) scale(${currentZoom})`;
-            updateZoomDisplay();
+            img.src = imgElement.src;
         }
     </script>
 </body>
