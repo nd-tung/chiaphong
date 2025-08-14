@@ -8,13 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4facfe">
     <title>🏨 Hotel Room Classification - Upload PDFs</title>
-    <!-- PhotoSwipe CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.2/dist/photoswipe.css">
-    <!-- PhotoSwipe Dynamic Import Polyfill -->
-    <script type="module">
-        import PhotoSwipe from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.2/dist/photoswipe.esm.js';
-        window.PhotoSwipe = PhotoSwipe;
-    </script>
+    <!-- Custom image modal - no external dependencies -->
     <style>
         * {
             margin: 0;
@@ -521,8 +515,8 @@
                 <div class="date-input">
                     <label for="schedule_date">📅 Ngày chia lịch:</label>
                     <input type="text" id="schedule_date" name="schedule_date" 
-                           placeholder="DD-MM-YY" value="14-08-25" required>
-                    <small>Format: DD-MM-YY (ví dụ: 14-08-25)</small>
+                           placeholder="DD-MM-YY" value="" required>
+                    <small>Format: DD-MM-YY (mặc định: ngày mai)</small>
                 </div>
                 
                 <div class="file-uploads">
@@ -532,7 +526,7 @@
                     </div>
                     
                     <div class="file-group arr">
-                        <h3>📥 ARR File (Arrival) <span style="color: #999; font-size: 0.8em;">[Tùy chọn]</span></h3>
+                        <h3>📥 ARR File (Arrival)</h3>
                         <p>Upload file PDF chứa danh sách khách check-in</p>
                         <div class="file-input">
                             <input type="file" id="arr_file" name="arr_file" accept=".pdf" onchange="showFileName('arr_file')">
@@ -542,7 +536,7 @@
                     </div>
                     
                     <div class="file-group dep">
-                        <h3>📤 DEP File (Departure) <span style="color: #999; font-size: 0.8em;">[Tùy chọn]</span></h3>
+                        <h3>📤 DEP File (Departure)</h3>
                         <p>Upload file PDF chứa danh sách khách check-out</p>
                         <div class="file-input">
                             <input type="file" id="dep_file" name="dep_file" accept=".pdf" onchange="showFileName('dep_file')">
@@ -552,7 +546,7 @@
                     </div>
                     
                     <div class="file-group gih">
-                        <h3>🏠 GIH Files (Guests in House) <span style="color: #999; font-size: 0.8em;">[Tùy chọn]</span></h3>
+                        <h3>🏠 GIH Files (Guests in House)</h3>
                         <p>Upload file PDF hoặc nhiều ảnh chụp màn hình GIH</p>
                         <div class="file-input">
                             <input type="file" id="gih_file" name="gih_file" accept=".pdf,.jpg,.jpeg,.png" multiple onchange="showGihFiles('gih_file')">
@@ -588,6 +582,27 @@
     
     
     <script>
+        // Set default date to tomorrow when page loads
+        window.addEventListener('DOMContentLoaded', function() {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+            
+            // Format as DD-MM-YY
+            const day = String(tomorrow.getDate()).padStart(2, '0');
+            const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+            const year = String(tomorrow.getFullYear()).slice(-2);
+            
+            const tomorrowFormatted = `${day}-${month}-${year}`;
+            
+            // Set the default value
+            const scheduleDateInput = document.getElementById('schedule_date');
+            if (scheduleDateInput && !scheduleDateInput.value) {
+                scheduleDateInput.value = tomorrowFormatted;
+                console.log(`📅 Default schedule date set to: ${tomorrowFormatted}`);
+            }
+        });
+        
         function showFileName(inputId) {
             const input = document.getElementById(inputId);
             const selectedDiv = document.getElementById(inputId.replace('_file', '_selected'));
@@ -752,56 +767,175 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('results').style.display = 'none';
             
+            // Store the current date value before reset
+            const currentDate = document.getElementById('schedule_date').value;
+            
             // Clear file selections
             document.getElementById('uploadForm').reset();
             document.getElementById('arr_selected').textContent = '';
             document.getElementById('dep_selected').textContent = '';
             document.getElementById('gih_selected').textContent = '';
+            
+            // Restore the date value (keep tomorrow's date after reset)
+            if (currentDate) {
+                document.getElementById('schedule_date').value = currentDate;
+            }
         }
         
-        // PhotoSwipe Image Modal Functions
+        // Simple image modal function without PhotoSwipe dependency
         function openImageModal(imgElement) {
-            if (!window.PhotoSwipe) {
-                console.error('PhotoSwipe not loaded');
-                return;
+            // Create a simple full-screen overlay modal
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.9);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                padding: 20px;
+                box-sizing: border-box;
+            `;
+            
+            const modalImg = document.createElement('img');
+            modalImg.src = imgElement.src;
+            modalImg.style.cssText = `
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+                border-radius: 8px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+                cursor: zoom-in;
+            `;
+            
+            // Close button
+            const closeBtn = document.createElement('div');
+            closeBtn.innerHTML = '✕';
+            closeBtn.style.cssText = `
+                position: absolute;
+                top: 20px;
+                right: 30px;
+                color: white;
+                font-size: 40px;
+                font-weight: bold;
+                cursor: pointer;
+                z-index: 10001;
+                width: 50px;
+                height: 50px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                background: rgba(0, 0, 0, 0.5);
+                transition: background 0.3s ease;
+            `;
+            
+            // Instructions
+            const instructions = document.createElement('div');
+            instructions.innerHTML = '💡 Click anywhere to close, scroll to zoom';
+            instructions.style.cssText = `
+                position: absolute;
+                bottom: 30px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: white;
+                font-size: 16px;
+                text-align: center;
+                background: rgba(0, 0, 0, 0.7);
+                padding: 10px 20px;
+                border-radius: 20px;
+                z-index: 10001;
+            `;
+            
+            // Add zoom functionality
+            let scale = 1;
+            let isDragging = false;
+            let startX, startY, translateX = 0, translateY = 0;
+            
+            modalImg.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                scale *= delta;
+                scale = Math.min(Math.max(0.5, scale), 5); // Limit zoom between 0.5x and 5x
+                modalImg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+                modalImg.style.cursor = scale > 1 ? 'grab' : 'zoom-in';
+            });
+            
+            // Add drag functionality when zoomed
+            modalImg.addEventListener('mousedown', function(e) {
+                if (scale > 1) {
+                    isDragging = true;
+                    startX = e.clientX - translateX;
+                    startY = e.clientY - translateY;
+                    modalImg.style.cursor = 'grabbing';
+                    e.preventDefault();
+                }
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (isDragging && scale > 1) {
+                    translateX = e.clientX - startX;
+                    translateY = e.clientY - startY;
+                    modalImg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+                }
+            });
+            
+            document.addEventListener('mouseup', function() {
+                if (isDragging) {
+                    isDragging = false;
+                    modalImg.style.cursor = scale > 1 ? 'grab' : 'zoom-in';
+                }
+            });
+            
+            // Close modal functions
+            function closeModal() {
+                document.removeEventListener('mousemove', arguments.callee);
+                document.removeEventListener('mouseup', arguments.callee);
+                document.body.removeChild(modal);
+                document.body.style.overflow = 'auto'; // Restore scrolling
             }
             
-            // Get image dimensions (we'll use default if not available)
-            const img = new Image();
-            img.onload = function() {
-                const items = [{
-                    src: imgElement.src,
-                    width: this.naturalWidth,
-                    height: this.naturalHeight,
-                    alt: 'Excel Preview - Click và kéo để xem chi tiết'
-                }];
-                
-                const options = {
-                    index: 0,
-                    bgOpacity: 0.9,
-                    showHideOpacity: true,
-                    spacing: 0.1,
-                    allowPanToNext: false,
-                    loop: false,
-                    pinchToClose: true,
-                    closeOnVerticalDrag: true,
-                    padding: { top: 20, bottom: 40, left: 100, right: 100 },
-                    wheelToZoom: true,
-                    zoomAnimationDuration: 250,
-                    initialZoomLevel: 'fit',
-                    secondaryZoomLevel: 1.5,
-                    maxZoomLevel: 3,
-                    doubleTapAction: 'zoom',
-                    clickToCloseNonZoomable: true
-                };
-                
-                const gallery = new PhotoSwipe(options);
-                gallery.init();
-                
-                // Load the items
-                gallery.loadAndOpen(0, items);
+            // Close on click (but not on image when dragging)
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal || e.target === closeBtn) {
+                    closeModal();
+                }
+            });
+            
+            closeBtn.addEventListener('click', closeModal);
+            
+            // Close on Escape key
+            const escapeHandler = function(e) {
+                if (e.key === 'Escape') {
+                    closeModal();
+                    document.removeEventListener('keydown', escapeHandler);
+                }
             };
-            img.src = imgElement.src;
+            document.addEventListener('keydown', escapeHandler);
+            
+            // Hover effects
+            closeBtn.addEventListener('mouseenter', function() {
+                this.style.background = 'rgba(255, 0, 0, 0.7)';
+            });
+            closeBtn.addEventListener('mouseleave', function() {
+                this.style.background = 'rgba(0, 0, 0, 0.5)';
+            });
+            
+            // Assemble modal
+            modal.appendChild(modalImg);
+            modal.appendChild(closeBtn);
+            modal.appendChild(instructions);
+            
+            // Add to page
+            document.body.appendChild(modal);
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            
+            console.log('📸 Image modal opened:', imgElement.src);
         }
     </script>
 </body>

@@ -16,6 +16,32 @@ from pdf2image import convert_from_path
 from PIL import Image
 import pytesseract
 import zipfile
+import shutil
+
+# Configure tesseract path for different environments
+# Try to find tesseract executable in common locations
+tesseract_paths = [
+    '/usr/bin/tesseract',        # Linux/Docker
+    '/opt/homebrew/bin/tesseract', # macOS with Homebrew (Apple Silicon)
+    '/usr/local/bin/tesseract',   # macOS with Homebrew (Intel)
+    'tesseract'                   # System PATH
+]
+
+for path in tesseract_paths:
+    if path == 'tesseract' or shutil.which(path):
+        try:
+            pytesseract.pytesseract.tesseract_cmd = path
+            # Test if it works
+            result = subprocess.run([path, '--version'], capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"✅ Tesseract found at: {path}")
+                print(f"   Version: {result.stdout.split()[1] if result.stdout else 'Unknown'}")
+                break
+        except Exception as e:
+            print(f"❌ Failed to use tesseract at {path}: {e}")
+            continue
+else:
+    print("⚠️ Warning: Tesseract not found in any common locations")
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -40,20 +66,30 @@ def allowed_zip_file(filename):
 def extract_text_from_image(image_path):
     """Extract text from image using OCR (pytesseract)"""
     try:
+        print(f"🔍 Processing image: {os.path.basename(image_path)}")
+        
         # Open image with PIL
         image = Image.open(image_path)
+        print(f"   Image size: {image.size}, mode: {image.mode}")
         
         # Convert to RGB if necessary
         if image.mode != 'RGB':
             image = image.convert('RGB')
+            print(f"   Converted to RGB mode")
         
-        # Use pytesseract to extract text
-        text = pytesseract.image_to_string(image, lang='eng')
+        # Use pytesseract to extract text with better configuration for hotel data
+        # config options: preserve_interword_spaces to maintain table structure
+        custom_config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1'
+        text = pytesseract.image_to_string(image, lang='eng', config=custom_config)
+        
+        lines_found = len([line for line in text.split('\n') if line.strip()])
+        print(f"   ✅ OCR completed: {lines_found} non-empty lines extracted")
         
         return text
         
     except Exception as e:
-        print(f"Error extracting text from image {image_path}: {e}")
+        print(f"❌ Error extracting text from image {image_path}: {e}")
+        print(f"   Check if tesseract is properly configured: {pytesseract.pytesseract.tesseract_cmd}")
         return ""
 
 def extract_rooms_from_gih_images(image_paths, schedule_date):
