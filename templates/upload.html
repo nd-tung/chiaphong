@@ -552,13 +552,16 @@
                     </div>
                     
                     <div class="file-group gih">
-                        <h3>🏠 GIH File (Guests in House) <span style="color: #999; font-size: 0.8em;">[Tùy chọn]</span></h3>
-                        <p>Upload file PDF chứa danh sách khách đang ở</p>
+                        <h3>🏠 GIH Files (Guests in House) <span style="color: #999; font-size: 0.8em;">[Tùy chọn]</span></h3>
+                        <p>Upload file PDF hoặc nhiều ảnh chụp màn hình GIH</p>
                         <div class="file-input">
-                            <input type="file" id="gih_file" name="gih_file" accept=".pdf" onchange="showFileName('gih_file')">
-                            <label for="gih_file" class="file-input-label">Chọn file GIH</label>
+                            <input type="file" id="gih_file" name="gih_file" accept=".pdf,.jpg,.jpeg,.png" multiple onchange="showGihFiles('gih_file')">
+                            <label for="gih_file" class="file-input-label">Chọn GIH (PDF hoặc nhiều ảnh)</label>
                         </div>
                         <div class="file-selected" id="gih_selected"></div>
+                        <small style="color: #666; font-size: 0.8em; margin-top: 5px; display: block;">
+                            💡 Hỗ trợ: 1 file PDF hoặc nhiều ảnh JPG/PNG (Ctrl+Click để chọn nhiều ảnh)
+                        </small>
                     </div>
                 </div>
             </form>
@@ -591,6 +594,21 @@
             
             if (input.files.length > 0) {
                 selectedDiv.textContent = `✅ ${input.files[0].name}`;
+            } else {
+                selectedDiv.textContent = '';
+            }
+        }
+        
+        function showGihFiles(inputId) {
+            const input = document.getElementById(inputId);
+            const selectedDiv = document.getElementById(inputId.replace('_file', '_selected'));
+            
+            if (input.files.length > 0) {
+                if (input.files.length === 1) {
+                    selectedDiv.textContent = `✅ ${input.files[0].name}`;
+                } else {
+                    selectedDiv.innerHTML = `✅ ${input.files.length} files được chọn<br><small>${Array.from(input.files).map(f => f.name).join(', ')}</small>`;
+                }
             } else {
                 selectedDiv.textContent = '';
             }

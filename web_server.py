@@ -14,6 +14,8 @@ from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from pdf2image import convert_from_path
 from PIL import Image
+import pytesseract
+import zipfile
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -24,6 +26,166 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 ALLOWED_EXTENSIONS = {'pdf', 'PDF'}
+IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'JPG', 'JPEG', 'PNG'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+
+def allowed_image_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1] in IMAGE_EXTENSIONS
+
+def allowed_zip_file(filename):
+    return filename.lower().endswith('.zip')
+
+def extract_text_from_image(image_path):
+    """Extract text from image using OCR (pytesseract)"""
+    try:
+        # Open image with PIL
+        image = Image.open(image_path)
+        
+        # Convert to RGB if necessary
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        # Use pytesseract to extract text
+        text = pytesseract.image_to_string(image, lang='eng')
+        
+        return text
+        
+    except Exception as e:
+        print(f"Error extracting text from image {image_path}: {e}")
+        return ""
+
+def extract_rooms_from_gih_images(image_paths, schedule_date):
+    """Extract and classify rooms from GIH image files using OCR
+    Focus on extracting room numbers from the first column and their corresponding dates
+    """
+    try:
+        all_lines = []
+        
+        # Extract text from all images and collect lines
+        for image_path in image_paths:
+            text = extract_text_from_image(image_path)
+            lines = text.split('\n')
+            all_lines.extend(lines)
+        
+        room_data = []
+        
+        for line in all_lines:
+            line_clean = line.strip()
+            if not line_clean or len(line_clean) < 10:  # Skip too short lines
+                continue
+            
+            # First, try to find room number at the beginning of line (like PDF processing)
+            room_match = re.match(r'^\s*(\d{4})\b', line_clean)
+            if room_match:
+                room_number = room_match.group(1)
+                
+                # Skip years (19xx, 20xx)
+                if re.match(r'^(19|20)\d{2}$', room_number):
+                    continue
+                
+                # Now extract dates from the same line
+                # Look for patterns like "11-08-25" or "11/08/25" 
+                dates_found = re.findall(r'\b(\d{2}[-/]\d{2}[-/]\d{2})\b', line_clean)
+                
+                # Convert different date formats to DD-MM-YY
+                normalized_dates = []
+                for date_str in dates_found:
+                    # Handle both DD-MM-YY and DD/MM/YY formats
+                    date_clean = date_str.replace('/', '-')
+                    normalized_dates.append(date_clean)
+                
+                if len(normalized_dates) >= 2:
+                    # Typically first date is check-in, second is check-out
+                    checkin_date = normalized_dates[0]
+                    checkout_date = normalized_dates[1]
+                    
+                    room_data.append({
+                        'room': room_number,
+                        'checkin': checkin_date,
+                        'checkout': checkout_date,
+                        'source_line': line_clean[:50]  # Keep first 50 chars for debugging
+                    })
+                elif len(normalized_dates) == 1:
+                    # Single date - treat as current stay date
+                    room_data.append({
+                        'room': room_number,
+                        'checkin': normalized_dates[0],
+                        'checkout': normalized_dates[0],
+                        'source_line': line_clean[:50]
+                    })
+                else:
+                    # Room number found but no dates - might be header or incomplete line
+                    print(f"Room {room_number} found but no dates in line: {line_clean[:30]}...")
+            else:
+                # Alternative approach: find any room numbers in the line with their nearby dates
+                room_matches = re.findall(r'\b(\d{4})\b', line_clean)
+                for room_number in room_matches:
+                    # Skip years and common numbers
+                    if re.match(r'^(19|20)\d{2}$', room_number):
+                        continue
+                    if room_number in ['1844', '1103']:  # Skip common time/reference numbers
+                        continue
+                        
+                    # Extract dates from the same line 
+                    dates_found = re.findall(r'\b(\d{2}[-/]\d{2}[-/]\d{2})\b', line_clean)
+                    
+                    if len(dates_found) >= 2:
+                        normalized_dates = [date_str.replace('/', '-') for date_str in dates_found]
+                        checkin_date = normalized_dates[0]
+                        checkout_date = normalized_dates[1]
+                        
+                        room_data.append({
+                            'room': room_number,
+                            'checkin': checkin_date,
+                            'checkout': checkout_date,
+                            'source_line': line_clean[:50]
+                        })
+        
+        # Remove duplicates based on room + dates combination
+        seen_rooms = set()
+        unique_room_data = []
+        
+        for data in room_data:
+            room_key = f"{data['room']}_{data['checkin']}_{data['checkout']}"
+            if room_key not in seen_rooms:
+                seen_rooms.add(room_key)
+                unique_room_data.append(data)
+                print(f"Found: Room {data['room']}, CI: {data['checkin']}, CO: {data['checkout']}")
+        
+        # Classify rooms based on schedule date
+        gih_arr_rooms = []
+        gih_od_rooms = []
+        
+        for room_info in unique_room_data:
+            room = room_info['room']
+            checkin = room_info['checkin']
+            checkout = room_info['checkout']
+            
+            if checkin == schedule_date:
+                gih_arr_rooms.append(room)
+                print(f"ARR: Room {room} (check-in on {checkin})")
+            elif checkout == schedule_date:
+                # Skip DEP rooms from GIH as mentioned in original logic
+                print(f"Skip DEP: Room {room} (check-out on {checkout})")
+                pass
+            else:
+                gih_od_rooms.append(room)
+                print(f"OD: Room {room} (staying {checkin} to {checkout})")
+        
+        print(f"GIH Images processed: {len(gih_arr_rooms)} ARR, {len(gih_od_rooms)} OD")
+        
+        return {
+            'ARR': sorted(list(set(gih_arr_rooms))),
+            'OD': sorted(list(set(gih_od_rooms)))
+        }
+        
+    except Exception as e:
+        print(f"Error processing GIH images: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'ARR': [], 'OD': []}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
@@ -724,7 +886,7 @@ def upload_files():
                 break
                 
         if not has_files:
-            return jsonify({'error': 'Vui lòng upload ít nhất 1 file PDF'}), 400
+            return jsonify({'error': 'Vui lòng upload ít nhất 1 file'}), 400
         
         result = {
             'schedule_date': schedule_date,
@@ -762,25 +924,66 @@ def upload_files():
                 
                 os.remove(filepath)  # Clean up
         
-        # Process GIH file
+        # Process GIH files (PDF or multiple images)
         if 'gih_file' in request.files:
-            gih_file = request.files['gih_file']
-            if gih_file and gih_file.filename and allowed_file(gih_file.filename):
-                filename = secure_filename(gih_file.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'gih_' + filename)
-                gih_file.save(filepath)
+            gih_files = request.files.getlist('gih_file')  # Get all files with this name
+            
+            if gih_files and gih_files[0].filename:  # At least one file exists
+                gih_result = {'ARR': [], 'OD': []}
                 
-                gih_result = extract_rooms_from_gih(filepath, schedule_date)
+                # Check if it's a single PDF file
+                if len(gih_files) == 1 and allowed_file(gih_files[0].filename):
+                    # Single PDF file
+                    gih_file = gih_files[0]
+                    filename = secure_filename(gih_file.filename)
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'gih_' + filename)
+                    gih_file.save(filepath)
+                    
+                    gih_result = extract_rooms_from_gih(filepath, schedule_date)
+                    result['processing_info'].append(f"GIH PDF: {len(gih_result['OD'])} OD phòng, {len(gih_result['ARR'])} thêm vào ARR từ {filename}")
+                    
+                    os.remove(filepath)  # Clean up
+                    
+                else:
+                    # Multiple image files or single image file
+                    image_paths = []
+                    saved_files = []
+                    
+                    try:
+                        for i, gih_file in enumerate(gih_files):
+                            if gih_file.filename and allowed_image_file(gih_file.filename):
+                                filename = secure_filename(gih_file.filename)
+                                filepath = os.path.join(app.config['UPLOAD_FOLDER'], f'gih_{i}_{filename}')
+                                gih_file.save(filepath)
+                                image_paths.append(filepath)
+                                saved_files.append(filepath)
+                        
+                        if image_paths:
+                            print(f"Processing {len(image_paths)} GIH image files...")
+                            gih_result = extract_rooms_from_gih_images(image_paths, schedule_date)
+                            result['processing_info'].append(f"GIH Images: {len(image_paths)} ảnh, {len(gih_result['OD'])} OD phòng, {len(gih_result['ARR'])} thêm vào ARR")
+                        else:
+                            result['processing_info'].append(f"Không tìm thấy ảnh GIH hợp lệ trong {len(gih_files)} files")
+                            
+                    except Exception as e:
+                        print(f"Error processing GIH image files: {e}")
+                        result['processing_info'].append(f"Lỗi xử lý ảnh GIH: {str(e)}")
+                        
+                    finally:
+                        # Clean up saved image files
+                        for filepath in saved_files:
+                            try:
+                                os.remove(filepath)
+                            except:
+                                pass
                 
                 # Merge ARR from GIH with ARR from file
-                combined_arr = list(set(result['ARR'] + gih_result['ARR']))
-                combined_arr.sort()
-                result['ARR'] = combined_arr
-                
-                result['OD'] = gih_result['OD']
-                result['processing_info'].append(f"GIH: {len(gih_result['OD'])} OD phòng, {len(gih_result['ARR'])} thêm vào ARR từ {filename}")
-                
-                os.remove(filepath)  # Clean up
+                if gih_result['ARR'] or gih_result['OD']:
+                    combined_arr = list(set(result['ARR'] + gih_result['ARR']))
+                    combined_arr.sort()
+                    result['ARR'] = combined_arr
+                    
+                    result['OD'] = gih_result['OD']
         
         # Create Excel file with results
         excel_path = create_excel_output(result, schedule_date)

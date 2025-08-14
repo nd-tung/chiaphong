@@ -1,9 +1,11 @@
 FROM python:3.9-slim
 
-# Install system dependencies including poppler-utils for pdftotext
+# Install system dependencies including poppler-utils for pdftotext and tesseract for OCR
 RUN apt-get update && apt-get install -y \
     poppler-utils \
     ghostscript \
+    tesseract-ocr \
+    tesseract-ocr-eng \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
