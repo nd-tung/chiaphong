@@ -526,8 +526,13 @@
                 </div>
                 
                 <div class="file-uploads">
+                    <div class="upload-note" style="text-align: center; margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                        <p style="color: #1565c0; font-weight: bold; margin: 0;">💡 Bạn có thể upload từ 1-3 file PDF tùy theo nhu cầu</p>
+                        <small style="color: #1976d2;">Hệ thống sẽ tự động xử lý những file được chọn</small>
+                    </div>
+                    
                     <div class="file-group arr">
-                        <h3>📥 ARR File (Arrival)</h3>
+                        <h3>📥 ARR File (Arrival) <span style="color: #999; font-size: 0.8em;">[Tùy chọn]</span></h3>
                         <p>Upload file PDF chứa danh sách khách check-in</p>
                         <div class="file-input">
                             <input type="file" id="arr_file" name="arr_file" accept=".pdf" onchange="showFileName('arr_file')">
@@ -537,7 +542,7 @@
                     </div>
                     
                     <div class="file-group dep">
-                        <h3>📤 DEP File (Departure)</h3>
+                        <h3>📤 DEP File (Departure) <span style="color: #999; font-size: 0.8em;">[Tùy chọn]</span></h3>
                         <p>Upload file PDF chứa danh sách khách check-out</p>
                         <div class="file-input">
                             <input type="file" id="dep_file" name="dep_file" accept=".pdf" onchange="showFileName('dep_file')">
@@ -547,7 +552,7 @@
                     </div>
                     
                     <div class="file-group gih">
-                        <h3>🏠 GIH File (Guests in House)</h3>
+                        <h3>🏠 GIH File (Guests in House) <span style="color: #999; font-size: 0.8em;">[Tùy chọn]</span></h3>
                         <p>Upload file PDF chứa danh sách khách đang ở</p>
                         <div class="file-input">
                             <input type="file" id="gih_file" name="gih_file" accept=".pdf" onchange="showFileName('gih_file')">
@@ -594,6 +599,16 @@
         function processFiles() {
             const form = document.getElementById('uploadForm');
             const formData = new FormData(form);
+            
+            // Check if at least one file is selected
+            const arrFile = document.getElementById('arr_file').files[0];
+            const depFile = document.getElementById('dep_file').files[0];
+            const gihFile = document.getElementById('gih_file').files[0];
+            
+            if (!arrFile && !depFile && !gihFile) {
+                showError('Vui lòng chọn ít nhất 1 file PDF để xử lý');
+                return;
+            }
             
             // Show loading
             document.querySelector('.upload-section').style.display = 'none';

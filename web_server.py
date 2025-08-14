@@ -715,6 +715,16 @@ def upload_files():
             datetime.strptime(schedule_date, "%d-%m-%y")
         except ValueError:
             return jsonify({'error': 'Format ngày không đúng (DD-MM-YY)'}), 400
+            
+        # Check if at least one file is provided
+        has_files = False
+        for file_key in ['arr_file', 'dep_file', 'gih_file']:
+            if file_key in request.files and request.files[file_key] and request.files[file_key].filename:
+                has_files = True
+                break
+                
+        if not has_files:
+            return jsonify({'error': 'Vui lòng upload ít nhất 1 file PDF'}), 400
         
         result = {
             'schedule_date': schedule_date,
