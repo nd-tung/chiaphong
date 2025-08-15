@@ -629,9 +629,22 @@
             }
         }
         
-        function processFiles() {
+        // Helper function to convert file to base64
+        async function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    // Remove data:application/pdf;base64, prefix
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        async function processFiles() {
             const form = document.getElementById('uploadForm');
-            const formData = new FormData(form);
             
             // Check if at least one file is selected
             const arrFile = document.getElementById('arr_file').files[0];
@@ -649,11 +662,47 @@
             document.getElementById('loading').style.display = 'block';
             document.getElementById('results').style.display = 'none';
             
-            // Send files to server
-            fetch('/upload', {
-                method: 'POST',
-                body: formData
-            })
+            try {
+                // Create new FormData for Base64 encoded files
+                const formData = new FormData();
+                
+                // Add schedule date
+                const scheduleDate = document.getElementById('schedule_date').value;
+                formData.append('schedule_date', scheduleDate);
+                
+                console.log('🔄 Converting files to Base64...');
+                
+                // Convert and add ARR file
+                if (arrFile) {
+                    console.log('📥 Encoding ARR file:', arrFile.name);
+                    const arrBase64 = await fileToBase64(arrFile);
+                    formData.append('arr_file_b64', arrBase64);
+                    console.log('✅ ARR file encoded:', arrBase64.length, 'chars');
+                }
+                
+                // Convert and add DEP file
+                if (depFile) {
+                    console.log('📥 Encoding DEP file:', depFile.name);
+                    const depBase64 = await fileToBase64(depFile);
+                    formData.append('dep_file_b64', depBase64);
+                    console.log('✅ DEP file encoded:', depBase64.length, 'chars');
+                }
+                
+                // Handle GIH files differently (keep as regular files for now)
+                if (gihFile) {
+                    const gihFiles = document.getElementById('gih_file').files;
+                    for (let i = 0; i < gihFiles.length; i++) {
+                        formData.append('gih_file', gihFiles[i]);
+                    }
+                }
+                
+                console.log('🚀 Sending Base64 encoded request...');
+                
+                // Send files to Base64 endpoint
+                fetch('/test-b64', {
+                    method: 'POST',
+                    body: formData
+                })
             .then(response => {
                 console.log('Response status:', response.status);
                 console.log('Response headers:', response.headers.get('content-type'));
