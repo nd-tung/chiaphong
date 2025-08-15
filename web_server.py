@@ -835,6 +835,40 @@ def preview_file(filename):
 def index():
     return render_template('upload.html')
 
+@app.route('/debug', methods=['GET', 'POST'])
+def debug_endpoint():
+    """Debug endpoint to test basic functionality"""
+    try:
+        if request.method == 'GET':
+            return jsonify({
+                'status': 'ok',
+                'method': 'GET',
+                'timestamp': datetime.now().isoformat(),
+                'environment': {
+                    'has_compdf_keys': bool(os.environ.get('COMPDF_PUBLIC_KEY')),
+                    'upload_folder': app.config['UPLOAD_FOLDER'],
+                    'upload_folder_exists': os.path.exists(app.config['UPLOAD_FOLDER']),
+                    'tesseract_cmd': pytesseract.pytesseract.tesseract_cmd
+                }
+            })
+        
+        elif request.method == 'POST':
+            return jsonify({
+                'status': 'ok',
+                'method': 'POST',
+                'timestamp': datetime.now().isoformat(),
+                'form_keys': list(request.form.keys()),
+                'files_keys': list(request.files.keys()),
+                'content_type': request.content_type
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
 @app.route('/manual_edit', methods=['GET', 'POST'])
 def manual_edit():
     if request.method == 'GET':
