@@ -91,3 +91,4 @@ gih_*.py
 # Logs
 *.log
 logs/
+.env.local

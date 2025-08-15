@@ -4,8 +4,8 @@ services:
     env: python
     repo: https://github.com/nd-tung/chiaphong.git
     buildCommand: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
+      chmod +x build.sh
+      ./build.sh
     startCommand: python web_server.py
     envVars:
       - key: PYTHON_VERSION
@@ -15,6 +15,8 @@ services:
           type: web
           name: chiaphong-web
           property: port
+      - key: FLASK_ENV
+        value: production
     scaling:
       minInstances: 1
       maxInstances: 3
