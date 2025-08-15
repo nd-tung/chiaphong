@@ -234,34 +234,66 @@ def pdf_to_text(pdf_path):
     """Convert PDF thành text sử dụng pdfplumber (không cần pdftotext)"""
     text_path = pdf_path.replace('.pdf', '.txt').replace('.PDF', '.txt')
     
+    # Check file size first (limit to 10MB on server)
     try:
-        # Try system pdftotext first
+        file_size = os.path.getsize(pdf_path)
+        max_size = 10 * 1024 * 1024  # 10MB
+        print(f"📄 PDF file size: {file_size} bytes ({file_size/1024/1024:.1f}MB)")
+        
+        if file_size > max_size:
+            print(f"⚠️ PDF file too large: {file_size/1024/1024:.1f}MB > {max_size/1024/1024:.1f}MB")
+            return None
+    except Exception as e:
+        print(f"Error checking file size: {e}")
+        return None
+    
+    try:
+        # Try system pdftotext first with timeout
+        print(f"🔧 Trying pdftotext extraction...")
         cmd = ['pdftotext', '-layout', pdf_path, text_path]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  # Increased timeout
         
         if result.returncode == 0 and os.path.exists(text_path):
+            print(f"✅ pdftotext successful")
             return text_path
-    except:
-        pass
+        else:
+            print(f"⚠️ pdftotext failed: {result.stderr}")
+    except subprocess.TimeoutExpired:
+        print(f"⏰ pdftotext timeout after 60 seconds")
+    except Exception as e:
+        print(f"❌ pdftotext error: {e}")
     
     # Fallback to pdfplumber
     try:
+        print(f"🔧 Falling back to pdfplumber...")
         import pdfplumber
         
         with pdfplumber.open(pdf_path) as pdf:
             text_content = ""
-            for page in pdf.pages:
+            total_pages = len(pdf.pages)
+            print(f"📖 PDF has {total_pages} pages")
+            
+            # Limit processing to first 20 pages to avoid timeout
+            max_pages = min(total_pages, 20)
+            for i, page in enumerate(pdf.pages[:max_pages]):
                 if page.extract_text():
                     text_content += page.extract_text() + "\n"
+                    
+                # Progress logging
+                if (i + 1) % 5 == 0 or i == max_pages - 1:
+                    print(f"   Processed page {i + 1}/{max_pages}")
         
         # Write to text file
         with open(text_path, 'w', encoding='utf-8') as f:
             f.write(text_content)
         
+        print(f"✅ pdfplumber successful: {len(text_content)} characters extracted")
         return text_path
         
     except Exception as e:
-        print(f"Error extracting PDF text: {e}")
+        print(f"❌ Error extracting PDF text with pdfplumber: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def extract_rooms_from_arr_dep(pdf_path):
@@ -997,13 +1029,26 @@ def upload_files():
             if arr_file and arr_file.filename and allowed_file(arr_file.filename):
                 filename = secure_filename(arr_file.filename)
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'arr_' + filename)
-                arr_file.save(filepath)
                 
-                arr_rooms = extract_rooms_from_arr_dep(filepath)
-                result['ARR'] = arr_rooms
-                result['processing_info'].append(f"ARR: {len(arr_rooms)} phòng từ {filename}")
+                print(f"📥 Processing ARR file: {filename} (size: {len(arr_file.read())} bytes)")
+                arr_file.seek(0)  # Reset file pointer after reading size
                 
-                os.remove(filepath)  # Clean up
+                try:
+                    arr_file.save(filepath)
+                    print(f"📁 ARR file saved to: {filepath}")
+                    
+                    arr_rooms = extract_rooms_from_arr_dep(filepath)
+                    result['ARR'] = arr_rooms
+                    result['processing_info'].append(f"ARR: {len(arr_rooms)} phòng từ {filename}")
+                    print(f"✅ ARR processing complete: {len(arr_rooms)} rooms found")
+                    
+                except Exception as e:
+                    print(f"❌ Error processing ARR file {filename}: {e}")
+                    result['processing_info'].append(f"❌ Lỗi ARR: {str(e)}")
+                finally:
+                    if os.path.exists(filepath):
+                        os.remove(filepath)  # Clean up
+                        print(f"🗑️ Cleaned up ARR file: {filepath}")
         
         # Process DEP file
         if 'dep_file' in request.files:
@@ -1011,13 +1056,26 @@ def upload_files():
             if dep_file and dep_file.filename and allowed_file(dep_file.filename):
                 filename = secure_filename(dep_file.filename)
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'dep_' + filename)
-                dep_file.save(filepath)
                 
-                dep_rooms = extract_rooms_from_arr_dep(filepath)
-                result['DEP'] = dep_rooms
-                result['processing_info'].append(f"DEP: {len(dep_rooms)} phòng từ {filename}")
+                print(f"📥 Processing DEP file: {filename} (size: {len(dep_file.read())} bytes)")
+                dep_file.seek(0)  # Reset file pointer after reading size
                 
-                os.remove(filepath)  # Clean up
+                try:
+                    dep_file.save(filepath)
+                    print(f"📁 DEP file saved to: {filepath}")
+                    
+                    dep_rooms = extract_rooms_from_arr_dep(filepath)
+                    result['DEP'] = dep_rooms
+                    result['processing_info'].append(f"DEP: {len(dep_rooms)} phòng từ {filename}")
+                    print(f"✅ DEP processing complete: {len(dep_rooms)} rooms found")
+                    
+                except Exception as e:
+                    print(f"❌ Error processing DEP file {filename}: {e}")
+                    result['processing_info'].append(f"❌ Lỗi DEP: {str(e)}")
+                finally:
+                    if os.path.exists(filepath):
+                        os.remove(filepath)  # Clean up
+                        print(f"🗑️ Cleaned up DEP file: {filepath}")
         
         # Process GIH files (PDF or multiple images)
         if 'gih_file' in request.files:
