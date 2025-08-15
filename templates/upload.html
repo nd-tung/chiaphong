@@ -654,8 +654,27 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers.get('content-type'));
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // Check if response is JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return response.text().then(text => {
+                        console.error('Non-JSON response:', text.substring(0, 500));
+                        throw new Error('Server returned non-JSON response (possibly redirected to homepage)');
+                    });
+                }
+                
+                return response.json();
+            })
             .then(data => {
+                console.log('Response data:', data);
                 document.getElementById('loading').style.display = 'none';
                 
                 if (data.error) {
@@ -666,8 +685,9 @@
                 }
             })
             .catch(error => {
+                console.error('Fetch error:', error);
                 document.getElementById('loading').style.display = 'none';
-                showError('Lỗi kết nối: ' + error.message);
+                showError('Lỗi kết nối hoặc xử lý: ' + error.message);
                 resetForm();
             });
         }
