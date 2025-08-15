@@ -743,6 +743,12 @@
                 showError('Lỗi kết nối hoặc xử lý: ' + error.message);
                 resetForm();
             });
+            } catch (error) {
+                console.error('File processing error:', error);
+                document.getElementById('loading').style.display = 'none';
+                showError('Lỗi xử lý file: ' + error.message);
+                resetForm();
+            }
         }
         
         function showResults(data) {
