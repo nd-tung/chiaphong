@@ -659,7 +659,11 @@
                 console.log('Response headers:', response.headers.get('content-type'));
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    // Log the actual HTML response for debugging
+                    return response.text().then(text => {
+                        console.error('Full error response:', text.substring(0, 1000));
+                        throw new Error(`HTTP error! status: ${response.status} - Check console for details`);
+                    });
                 }
                 
                 // Check if response is JSON
