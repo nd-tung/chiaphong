@@ -45,6 +45,10 @@ else:
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Disable CSRF for file uploads if needed
+app.config['WTF_CSRF_ENABLED'] = False
 
 # Production-friendly upload folder
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'temp_uploads')
@@ -901,8 +905,20 @@ def manual_edit():
         except Exception as e:
             return jsonify({'error': f'Lỗi xử lý: {str(e)}'}), 500
 
-@app.route('/upload', methods=['POST'])
+@app.after_request
+def after_request(response):
+    """Add CORS headers to all responses"""
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+@app.route('/upload', methods=['POST', 'OPTIONS'])
 def upload_files():
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     print("\n🚀 === UPLOAD REQUEST RECEIVED ===")
     print(f"Request method: {request.method}")
     print(f"Content-Type: {request.content_type}")
