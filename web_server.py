@@ -903,9 +903,18 @@ def manual_edit():
 
 @app.route('/upload', methods=['POST'])
 def upload_files():
+    print("\n🚀 === UPLOAD REQUEST RECEIVED ===")
+    print(f"Request method: {request.method}")
+    print(f"Content-Type: {request.content_type}")
+    print(f"Form data keys: {list(request.form.keys())}")
+    print(f"Files: {list(request.files.keys())}")
+    
     try:
         schedule_date = request.form.get('schedule_date', '')
+        print(f"📅 Schedule date received: '{schedule_date}'")
+        
         if not schedule_date:
+            print("❌ No schedule date provided")
             return jsonify({'error': 'Vui lòng nhập ngày chia lịch'}), 400
         
         # Validate date format
@@ -1038,9 +1047,20 @@ def upload_files():
                 result['processing_info'].append(f"⚠️ Excel đã tạo thành công, lỗi tạo ảnh: {str(e)}")
                 print(f"Image creation error: {e}")
         
+        print(f"\n✅ === PROCESSING COMPLETE ===")
+        print(f"Final result keys: {list(result.keys())}")
+        print(f"Result summary: ARR={len(result['ARR'])}, DEP={len(result['DEP'])}, OD={len(result['OD'])}")
+        print(f"Excel path: {result.get('excel_path', 'None')}")
+        print(f"Image path: {result.get('image_path', 'None')}")
+        print(f"Processing info: {result['processing_info']}")
+        
         return jsonify(result)
         
     except Exception as e:
+        print(f"\n❌ === UPLOAD ERROR ===")
+        print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Lỗi xử lý: {str(e)}'}), 500
 
 if __name__ == '__main__':
