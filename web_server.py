@@ -988,8 +988,23 @@ def upload_files():
     print("\n🚀 === UPLOAD REQUEST RECEIVED ===")
     print(f"Request method: {request.method}")
     print(f"Content-Type: {request.content_type}")
+    print(f"Content-Length: {request.headers.get('Content-Length', 'Unknown')}")
+    print(f"User-Agent: {request.headers.get('User-Agent', 'Unknown')[:100]}...")
     print(f"Form data keys: {list(request.form.keys())}")
     print(f"Files: {list(request.files.keys())}")
+    
+    # Log total request size
+    total_size = 0
+    for file_key in request.files:
+        files = request.files.getlist(file_key)
+        for file in files:
+            if file.filename:
+                file_content = file.read()
+                total_size += len(file_content)
+                file.seek(0)  # Reset file pointer
+                print(f"📁 File {file.filename}: {len(file_content)} bytes ({len(file_content)/1024/1024:.2f}MB)")
+    
+    print(f"📊 Total upload size: {total_size} bytes ({total_size/1024/1024:.2f}MB)")
     
     try:
         schedule_date = request.form.get('schedule_date', '')
