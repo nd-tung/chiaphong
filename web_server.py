@@ -901,6 +901,104 @@ def debug_endpoint():
             'timestamp': datetime.now().isoformat()
         }), 500
 
+@app.route('/test-b64', methods=['POST'])
+def test_base64_upload():
+    """Test endpoint for Base64 encoded file uploads"""
+    try:
+        print("\n🧪 === BASE64 TEST REQUEST ===")
+        print(f"Form keys: {list(request.form.keys())}")
+        
+        # Get base64 data
+        schedule_date = request.form.get('schedule_date', '')
+        arr_b64 = request.form.get('arr_file_b64', '')
+        dep_b64 = request.form.get('dep_file_b64', '')
+        
+        print(f"Schedule date: {schedule_date}")
+        print(f"ARR Base64 length: {len(arr_b64)}")
+        print(f"DEP Base64 length: {len(dep_b64)}")
+        
+        result = {
+            'schedule_date': schedule_date,
+            'ARR': [],
+            'DEP': [],
+            'OD': [],
+            'processing_info': []
+        }
+        
+        # Process ARR base64
+        if arr_b64:
+            try:
+                import base64
+                pdf_data = base64.b64decode(arr_b64)
+                print(f"📄 Decoded ARR PDF: {len(pdf_data)} bytes")
+                
+                # Save temporarily
+                temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_arr_b64.pdf')
+                with open(temp_path, 'wb') as f:
+                    f.write(pdf_data)
+                
+                # Extract rooms
+                arr_rooms = extract_rooms_from_arr_dep(temp_path)
+                result['ARR'] = arr_rooms
+                result['processing_info'].append(f"ARR B64: {len(arr_rooms)} phòng")
+                print(f"✅ ARR B64 processing: {len(arr_rooms)} rooms")
+                
+                # Clean up
+                os.remove(temp_path)
+                
+            except Exception as e:
+                print(f"❌ ARR B64 error: {e}")
+                result['processing_info'].append(f"❌ Lỗi ARR B64: {str(e)}")
+        
+        # Process DEP base64
+        if dep_b64:
+            try:
+                import base64
+                pdf_data = base64.b64decode(dep_b64)
+                print(f"📄 Decoded DEP PDF: {len(pdf_data)} bytes")
+                
+                # Save temporarily
+                temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_dep_b64.pdf')
+                with open(temp_path, 'wb') as f:
+                    f.write(pdf_data)
+                
+                # Extract rooms
+                dep_rooms = extract_rooms_from_arr_dep(temp_path)
+                result['DEP'] = dep_rooms
+                result['processing_info'].append(f"DEP B64: {len(dep_rooms)} phòng")
+                print(f"✅ DEP B64 processing: {len(dep_rooms)} rooms")
+                
+                # Clean up
+                os.remove(temp_path)
+                
+            except Exception as e:
+                print(f"❌ DEP B64 error: {e}")
+                result['processing_info'].append(f"❌ Lỗi DEP B64: {str(e)}")
+        
+        # Create Excel if we have results
+        if result['ARR'] or result['DEP']:
+            excel_path = create_excel_output(result, schedule_date)
+            if excel_path:
+                result['excel_path'] = excel_path
+                
+                # Create image from Excel
+                try:
+                    image_path = create_image_from_excel(excel_path)
+                    if image_path:
+                        result['image_path'] = image_path
+                        result['processing_info'].append("✅ Excel và ảnh B64 thành công")
+                except Exception as e:
+                    result['processing_info'].append(f"⚠️ Excel B64 OK, lỗi ảnh: {str(e)}")
+        
+        print(f"\n✅ B64 TEST COMPLETE: ARR={len(result['ARR'])}, DEP={len(result['DEP'])}")
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"\n❌ B64 TEST ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Base64 test error: {str(e)}'}), 500
+
 @app.route('/manual_edit', methods=['GET', 'POST'])
 def manual_edit():
     if request.method == 'GET':
