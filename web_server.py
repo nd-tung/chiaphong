@@ -18,6 +18,9 @@ import pytesseract
 import zipfile
 import shutil
 
+# Import module xử lý ảnh GIH cải tiến
+from gih_image_processor import process_gih_images as process_gih_images_enhanced
+
 # Configure tesseract path for different environments
 # Try to find tesseract executable in common locations
 tesseract_paths = [
@@ -97,9 +100,30 @@ def extract_text_from_image(image_path):
         return ""
 
 def extract_rooms_from_gih_images(image_paths, schedule_date):
-    """Extract and classify rooms from GIH image files using OCR
-    Focus on extracting room numbers from the first column and their corresponding dates
+    """Extract and classify rooms from GIH image files using enhanced OCR
+    Uses the improved gih_image_processor module with context-aware error fixing
     """
+    print(f"📸 Processing {len(image_paths)} GIH images with enhanced OCR...")
+    
+    try:
+        # Sử dụng module cải tiến với khả năng sửa lỗi OCR thông minh
+        result = process_gih_images_enhanced(image_paths, schedule_date)
+        
+        print(f"✅ Enhanced GIH processing complete:")
+        print(f"   ARR: {len(result['ARR'])} rooms - {result['ARR']}")
+        print(f"   OD: {len(result['OD'])} rooms - {result['OD']}")
+        
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error in enhanced GIH processing: {e}")
+        print(f"🔄 Falling back to original method...")
+        
+        # Fallback to original method
+        return extract_rooms_from_gih_images_legacy(image_paths, schedule_date)
+
+def extract_rooms_from_gih_images_legacy(image_paths, schedule_date):
+    """Legacy method for processing GIH images (fallback)"""
     try:
         all_lines = []
         
@@ -214,7 +238,7 @@ def extract_rooms_from_gih_images(image_paths, schedule_date):
                 gih_od_rooms.append(room)
                 print(f"OD: Room {room} (staying {checkin} to {checkout})")
         
-        print(f"GIH Images processed: {len(gih_arr_rooms)} ARR, {len(gih_od_rooms)} OD")
+        print(f"Legacy GIH Images processed: {len(gih_arr_rooms)} ARR, {len(gih_od_rooms)} OD")
         
         return {
             'ARR': sorted(list(set(gih_arr_rooms))),
@@ -222,7 +246,7 @@ def extract_rooms_from_gih_images(image_paths, schedule_date):
         }
         
     except Exception as e:
-        print(f"Error processing GIH images: {e}")
+        print(f"Error processing GIH images (legacy): {e}")
         import traceback
         traceback.print_exc()
         return {'ARR': [], 'OD': []}
@@ -1225,9 +1249,9 @@ def upload_files():
                                 saved_files.append(filepath)
                         
                         if image_paths:
-                            print(f"Processing {len(image_paths)} GIH image files...")
+                            print(f"📸 Processing {len(image_paths)} GIH image files with enhanced OCR...")
                             gih_result = extract_rooms_from_gih_images(image_paths, schedule_date)
-                            result['processing_info'].append(f"GIH Images: {len(image_paths)} ảnh, {len(gih_result['OD'])} OD phòng, {len(gih_result['ARR'])} thêm vào ARR")
+                            result['processing_info'].append(f"🏨 GIH Enhanced: {len(image_paths)} ảnh, {len(gih_result['OD'])} OD phòng, {len(gih_result['ARR'])} ARR phòng (với sửa lỗi OCR thông minh)")
                         else:
                             result['processing_info'].append(f"Không tìm thấy ảnh GIH hợp lệ trong {len(gih_files)} files")
                             
